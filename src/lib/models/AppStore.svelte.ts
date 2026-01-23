@@ -3,6 +3,8 @@ import { Player, type PlayerData } from './Player.svelte';
 import { pbService } from '$lib/services';
 
 const STORAGE_KEY = 'kt_app_data';
+const DISABLE_CLOUD_SYNC =
+  (import.meta as any).env?.VITE_DISABLE_CLOUD_SYNC === 'true';
 
 interface AppData {
     weeks: WeekData[];
@@ -31,7 +33,9 @@ export class AppStore {
     get syncState() { return this._syncState; }
     get syncError() { return this._syncError; }
     get lastSynced() { return this._lastSynced; }
-    get isCloudEnabled() { return pbService.isConfigured; }
+    get isCloudEnabled() { 
+        return !DISABLE_CLOUD_SYNC && pbService.isConfigured; 
+        }
 
     get activeWeek(): Week | undefined {
         if (!this._activeWeekId) return undefined;
@@ -63,9 +67,10 @@ export class AppStore {
         this._initialized = true;
 
         // Then try to sync from cloud
-        if (pbService.isConfigured) {
-            await this.syncFromCloud();
+        if (!DISABLE_CLOUD_SYNC && pbService.isConfigured) {
+        await this.syncFromCloud();
         }
+
     }
 
     // Player Roster Management
@@ -285,33 +290,53 @@ export class AppStore {
     }
 
     async syncFromCloud(): Promise<boolean> {
-        if (!pbService.isConfigured) return false;
-
-        this._syncState = 'syncing';
+    // Hard disable via env flag
+    if (DISABLE_CLOUD_SYNC) {
+        this._syncState = 'idle';
         this._syncError = null;
+        return false;
+    }
 
+    // Cloud not available / not implemented
+    if (!pbService.isConfigured || typeof (pbService as any).read !== 'function') {
+        this._syncState = 'idle';
+        this._syncError = null;
+        return false;
+    }
+
+    this._syncState = 'syncing';
+    this._syncError = null;
+
+    try {
         const result = await pbService.read<AppData>();
 
         if (result.success && result.data) {
-            this.applyAppData(result.data);
-            this.saveLocal(); // Update local storage with cloud data
-            this._syncState = 'success';
-            this._lastSynced = new Date().toISOString();
-            setTimeout(() => {
-                if (this._syncState === 'success') {
-                    this._syncState = 'idle';
-                }
-            }, 2000);
-            return true;
-        } else if (result.error === 'No bin ID stored') {
-            // No cloud data yet, that's okay
-            this._syncState = 'idle';
-            return false;
-        } else {
-            this._syncState = 'error';
-            this._syncError = result.error || 'Unknown error';
-            return false;
+        this.applyAppData(result.data);
+        this.saveLocal(); // Update local storage with cloud data
+        this._syncState = 'success';
+        this._lastSynced = new Date().toISOString();
+
+        setTimeout(() => {
+            if (this._syncState === 'success') this._syncState = 'idle';
+        }, 2000);
+
+        return true;
         }
+
+        if (result.error === 'No bin ID stored') {
+        // No cloud data yet, that's okay
+        this._syncState = 'idle';
+        return false;
+        }
+
+        this._syncState = 'error';
+        this._syncError = result.error || 'Unknown error';
+        return false;
+    } catch (e: any) {
+        this._syncState = 'error';
+        this._syncError = e?.message ?? String(e);
+        return false;
+    }
     }
 
     // Debounced save - saves locally immediately, syncs to cloud after delay

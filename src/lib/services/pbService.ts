@@ -1,46 +1,67 @@
+cat > src/lib/services/pbService.ts <<'EOF'
 import { pb } from "./pb";
 
 export type WeekRecord = {
   id: string;
   name: string;
-  start: string; // ISO date
-  end: string;   // ISO date
-  vig: number;
-  isClosed: boolean;
-  totals?: unknown;
+  start: string;
+  end: string;
+  vig?: number;
   created?: string;
   updated?: string;
 };
 
 export type PlayerRecord = {
   id: string;
-  week: string; // relation to weeks.id
   name: string;
-  accountNumber?: string;
-  amount: number;
-  carry?: number;
-  result?: number;
-  notes?: string;
+  account_number: number;
+  active?: boolean;
   created?: string;
   updated?: string;
 };
 
+export type WeekPlayerRecord = {
+  id: string;
+  week: string;
+  player: string;
+  amount_in?: number;
+  result?: number;
+  carry_amount?: number;
+  source_week_id?: string;
+  notes?: string;
+  expand?: {
+    player?: PlayerRecord;
+  };
+  created?: string;
+  updated?: string;
+};
+
+const DISABLE_CLOUD_SYNC = import.meta.env.VITE_DISABLE_CLOUD_SYNC === "true";
+const PB_READONLY = import.meta.env.VITE_PB_READONLY === "true";
+
 export const pbService = {
   get isConfigured(): boolean {
     const pbUrl = import.meta.env.VITE_POCKETBASE_URL as string | undefined;
-    return typeof pbUrl === "string" && pbUrl.length > 0;
+    return !DISABLE_CLOUD_SYNC && typeof pbUrl === "string" && pbUrl.length > 0;
   },
 
-    // ---- generic helpers (match AppStore expectations) ----
+  get isReadonly(): boolean {
+    return PB_READONLY;
+  },
+
+  // ---- generic helpers ----
   async update(collection: string, id: string, data: Record<string, any>) {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
     return pb.collection(collection).update(id, data);
   },
 
   async create(collection: string, data: Record<string, any>) {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
     return pb.collection(collection).create(data);
   },
 
   async upsert(collection: string, data: Record<string, any> & { id?: string }) {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
     if (data.id) {
       const { id, ...rest } = data;
       return pb.collection(collection).update(id, rest);
@@ -48,54 +69,76 @@ export const pbService = {
     return pb.collection(collection).create(data);
   },
 
-  // ---- weeks ----
+  // ---- week ----
   async listWeeks(): Promise<WeekRecord[]> {
-    return pb.collection("weeks").getFullList<WeekRecord>({
-      sort: "-created",
-    });
+    return pb.collection("week").getFullList<WeekRecord>({ sort: "-start" });
   },
 
-  async createWeek(
-    data: Omit<WeekRecord, "id" | "created" | "updated">
-  ): Promise<WeekRecord> {
-    return pb.collection("weeks").create<WeekRecord>(data);
+  async createWeek(data: Omit<WeekRecord, "id" | "created" | "updated">): Promise<WeekRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("week").create<WeekRecord>(data);
   },
 
-  async updateWeek(
-    id: string,
-    data: Partial<Omit<WeekRecord, "id">>
-  ): Promise<WeekRecord> {
-    return pb.collection("weeks").update<WeekRecord>(id, data);
+  async updateWeek(id: string, data: Partial<Omit<WeekRecord, "id">>): Promise<WeekRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("week").update<WeekRecord>(id, data);
   },
 
   async deleteWeek(id: string): Promise<boolean> {
-    await pb.collection("weeks").delete(id);
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    await pb.collection("week").delete(id);
     return true;
   },
 
-  // ---- players ----
-  async listPlayersForWeek(weekId: string): Promise<PlayerRecord[]> {
-    return pb.collection("players").getFullList<PlayerRecord>({
-      filter: `week = "${weekId}"`,
-      sort: "name",
-    });
+  // ---- player ----
+  async listPlayers(): Promise<PlayerRecord[]> {
+    return pb.collection("player").getFullList<PlayerRecord>({ sort: "name" });
   },
 
-  async createPlayer(
-    data: Omit<PlayerRecord, "id" | "created" | "updated">
-  ): Promise<PlayerRecord> {
-    return pb.collection("players").create<PlayerRecord>(data);
+  async createPlayer(data: Omit<PlayerRecord, "id" | "created" | "updated">): Promise<PlayerRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("player").create<PlayerRecord>(data);
   },
 
-  async updatePlayer(
-    id: string,
-    data: Partial<Omit<PlayerRecord, "id">>
-  ): Promise<PlayerRecord> {
-    return pb.collection("players").update<PlayerRecord>(id, data);
+  async updatePlayer(id: string, data: Partial<Omit<PlayerRecord, "id">>): Promise<PlayerRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("player").update<PlayerRecord>(id, data);
   },
 
   async deletePlayer(id: string): Promise<boolean> {
-    await pb.collection("players").delete(id);
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    await pb.collection("player").delete(id);
+    return true;
+  },
+
+  // ---- week_player ----
+  async listWeekPlayers(weekId: string): Promise<WeekPlayerRecord[]> {
+    return pb.collection("week_player").getFullList<WeekPlayerRecord>({
+      filter: `week = "${weekId}"`,
+      expand: "player",
+      sort: "created",
+    });
+  },
+
+  async createWeekPlayer(
+    data: Omit<WeekPlayerRecord, "id" | "created" | "updated" | "expand">
+  ): Promise<WeekPlayerRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("week_player").create<WeekPlayerRecord>(data);
+  },
+
+  async updateWeekPlayer(
+    id: string,
+    data: Partial<Omit<WeekPlayerRecord, "id" | "created" | "updated" | "expand">>
+  ): Promise<WeekPlayerRecord> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    return pb.collection("week_player").update<WeekPlayerRecord>(id, data);
+  },
+
+  async deleteWeekPlayer(id: string): Promise<boolean> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    await pb.collection("week_player").delete(id);
     return true;
   },
 };
+EOF

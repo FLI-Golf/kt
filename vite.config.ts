@@ -15,14 +15,8 @@ export default defineConfig({
   },
   server: {
     host: true,
-<<<<<<< HEAD
-    port: 5173,
-    strictPort: true,
-    allowedHosts: "all"
-=======
     port: 1420,
     strictPort: true,
     allowedHosts: [".app.github.dev"]
->>>>>>> cc4323a (updating db)
   }
 });
