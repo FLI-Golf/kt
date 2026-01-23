@@ -57,6 +57,7 @@ export class AppStore {
     get playerCount() {
         return this._players.length;
     }
+    
 
     // Initialization
     async init() {
@@ -129,6 +130,7 @@ export class AppStore {
         this.save();
     }
 
+
     // Duplicate a week (for starting a new week based on previous)
     duplicateWeek(id: string, newName: string): Week | undefined {
         const source = this.getWeek(id);
@@ -192,6 +194,7 @@ export class AppStore {
         return newWeek;
     }
 
+
     // Get running balance across all weeks
     getRunningBalance(): { 
         totalExpected: number; 
@@ -241,6 +244,25 @@ export class AppStore {
         this._activeWeekId = data.activeWeekId;
     }
 
+    private async syncToCloud() {
+        if (!pbService.isConfigured) return;
+
+        this._syncState = 'syncing';
+        this._syncError = null;
+
+        try {
+            await pbService.writeAppState(this.getAppData(), 1);
+            this._syncState = 'success';
+            this._lastSynced = new Date().toISOString();
+            setTimeout(() => {
+            if (this._syncState === 'success') this._syncState = 'idle';
+            }, 2000);
+        } catch (e: any) {
+            this._syncState = 'error';
+            this._syncError = e?.message ?? String(e);
+        }
+    }
+
     private saveLocal() {
         if (typeof localStorage === 'undefined') return;
 
@@ -265,29 +287,6 @@ export class AppStore {
         }
     }
 
-    // Persistence - Cloud Storage (PBbin)
-    private async syncToCloud() {
-        if (!pbService.isConfigured) return;
-
-        this._syncState = 'syncing';
-        this._syncError = null;
-
-        const result = await pbService.update(this.getAppData());
-
-        if (result.success) {
-            this._syncState = 'success';
-            this._lastSynced = new Date().toISOString();
-            // Reset to idle after 2 seconds
-            setTimeout(() => {
-                if (this._syncState === 'success') {
-                    this._syncState = 'idle';
-                }
-            }, 2000);
-        } else {
-            this._syncState = 'error';
-            this._syncError = result.error || 'Unknown error';
-        }
-    }
 
     async syncFromCloud(): Promise<boolean> {
     // Hard disable via env flag

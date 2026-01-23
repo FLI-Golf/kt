@@ -1,4 +1,4 @@
-cat > src/lib/services/pbService.ts <<'EOF'
+
 import { pb } from "./pb";
 
 export type WeekRecord = {
@@ -16,6 +16,14 @@ export type PlayerRecord = {
   name: string;
   account_number: number;
   active?: boolean;
+  created?: string;
+  updated?: string;
+};
+
+export type AppStateRecord<T = any> = {
+  id: string;
+  data: T;
+  version?: number;
   created?: string;
   updated?: string;
 };
@@ -140,5 +148,31 @@ export const pbService = {
     await pb.collection("week_player").delete(id);
     return true;
   },
+  
+    // ---- app_state (blob sync) ----
+  async readAppState<T = any>(): Promise<AppStateRecord<T> | null> {
+    // If cloud sync is disabled, behave like "no cloud data"
+    if (!this.isConfigured) return null;
+
+    const list = await pb.collection("app_state").getFullList<AppStateRecord<T>>({
+      sort: "-updated",
+      perPage: 1,
+    });
+
+    return list[0] ?? null;
+  },
+
+  async writeAppState<T = any>(data: T, version: number = 1): Promise<AppStateRecord<T>> {
+    if (PB_READONLY) throw new Error("READONLY mode enabled");
+    if (!this.isConfigured) throw new Error("PocketBase not configured");
+
+    const existing = await this.readAppState<T>();
+
+    if (existing) {
+      return pb.collection("app_state").update<AppStateRecord<T>>(existing.id, { data, version });
+    }
+
+    return pb.collection("app_state").create<AppStateRecord<T>>({ data, version });
+  },
+
 };
-EOF
