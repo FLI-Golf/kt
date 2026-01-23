@@ -4,11 +4,11 @@
   "version": "1.0.0",
   "identifier": "com.fli-golf.kt",
   "build": {
-  "beforeDevCommand": "npm run dev",
-  "devPath": "http://localhost:1420",
-  "beforeBuildCommand": "npm run build",
-  "frontendDist": "../dist"
-},
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
   "app": {
     "windows": [
       {
