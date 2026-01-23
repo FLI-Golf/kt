@@ -4,11 +4,19 @@
   "version": "1.0.0",
   "identifier": "com.fli-golf.kt",
   "build": {
+<<<<<<< HEAD
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "npm run build",
     "frontendDist": "../dist"
   },
+=======
+  "beforeDevCommand": "npm run dev",
+  "devUrl": "http://localhost:1420",
+  "beforeBuildCommand": "npm run build",
+  "frontendDist": "../dist"
+},
+>>>>>>> cc4323a (updating db)
   "app": {
     "windows": [
       {

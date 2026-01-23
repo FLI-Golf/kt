@@ -1,6 +1,6 @@
 import { Week, type WeekData } from './Week.svelte';
 import { Player, type PlayerData } from './Player.svelte';
-import { jsonBinService } from '$lib/services';
+import { pbService } from '$lib/services';
 
 const STORAGE_KEY = 'kt_app_data';
 
@@ -31,7 +31,7 @@ export class AppStore {
     get syncState() { return this._syncState; }
     get syncError() { return this._syncError; }
     get lastSynced() { return this._lastSynced; }
-    get isCloudEnabled() { return jsonBinService.isConfigured; }
+    get isCloudEnabled() { return pbService.isConfigured; }
 
     get activeWeek(): Week | undefined {
         if (!this._activeWeekId) return undefined;
@@ -63,7 +63,7 @@ export class AppStore {
         this._initialized = true;
 
         // Then try to sync from cloud
-        if (jsonBinService.isConfigured) {
+        if (pbService.isConfigured) {
             await this.syncFromCloud();
         }
     }
@@ -260,14 +260,14 @@ export class AppStore {
         }
     }
 
-    // Persistence - Cloud Storage (JSONbin)
+    // Persistence - Cloud Storage (PBbin)
     private async syncToCloud() {
-        if (!jsonBinService.isConfigured) return;
+        if (!pbService.isConfigured) return;
 
         this._syncState = 'syncing';
         this._syncError = null;
 
-        const result = await jsonBinService.update(this.getAppData());
+        const result = await pbService.update(this.getAppData());
 
         if (result.success) {
             this._syncState = 'success';
@@ -285,12 +285,12 @@ export class AppStore {
     }
 
     async syncFromCloud(): Promise<boolean> {
-        if (!jsonBinService.isConfigured) return false;
+        if (!pbService.isConfigured) return false;
 
         this._syncState = 'syncing';
         this._syncError = null;
 
-        const result = await jsonBinService.read<AppData>();
+        const result = await pbService.read<AppData>();
 
         if (result.success && result.data) {
             this.applyAppData(result.data);
@@ -323,7 +323,7 @@ export class AppStore {
             clearTimeout(this._saveTimeout);
         }
 
-        if (jsonBinService.isConfigured) {
+        if (pbService.isConfigured) {
             this._saveTimeout = setTimeout(() => {
                 this.syncToCloud();
             }, 1000); // Wait 1 second after last change before syncing
@@ -347,7 +347,7 @@ export class AppStore {
             localStorage.removeItem(STORAGE_KEY);
         }
         // Also clear cloud data
-        if (jsonBinService.isConfigured) {
+        if (pbService.isConfigured) {
             this.syncToCloud();
         }
     }

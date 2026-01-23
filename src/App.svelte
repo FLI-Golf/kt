@@ -79,6 +79,9 @@
 			}
 		}
 	};
+
+	console.log("APP BOOTED", new Date().toISOString());
+	console.log("PB URL", import.meta.env.VITE_POCKETBASE_URL);
 </script>
 
 <main class="min-h-screen bg-gray-100 p-4 md:p-8">
