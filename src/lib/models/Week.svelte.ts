@@ -10,8 +10,11 @@ export interface WeekData {
     start: string;
     end: string;
     total_amount: number;
+    total_income: number;
+    total_expenses: number;
     total_paid: number;
     total_unpaid: number;
+    net_balance: number;
     status: WeekStatus;
     closed_date: string | null;
     previous_week_id: string | null;
@@ -27,8 +30,11 @@ export class Week {
         start: new Date().toISOString(),
         end: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         total_amount: 0,
+        total_income: 0,
+        total_expenses: 0,
         total_paid: 0,
         total_unpaid: 0,
+        net_balance: 0,
         status: 'active',
         closed_date: null,
         previous_week_id: null,
@@ -52,8 +58,11 @@ export class Week {
     get start() { return this._state.start; }
     get end() { return this._state.end; }
     get total_amount() { return this._state.total_amount; }
+    get total_income() { return this._state.total_income; }
+    get total_expenses() { return this._state.total_expenses; }
     get total_paid() { return this._state.total_paid; }
     get total_unpaid() { return this._state.total_unpaid; }
+    get net_balance() { return this._state.net_balance; }
     get status() { return this._state.status; }
     get closed_date() { return this._state.closed_date; }
     get previous_week_id() { return this._state.previous_week_id; }
@@ -121,14 +130,29 @@ export class Week {
     }
 
     calculateTotals() {
+        // Calculate income total
+        this._state.total_income = this._transactions
+            .filter(t => t.type === 'income')
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        // Calculate expenses total
+        this._state.total_expenses = this._transactions
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + t.amount, 0);
+        
+        // Total amount is all transactions
         this._state.total_amount = this._transactions.reduce((sum, t) => sum + t.amount, 0);
         
+        // Net balance = income - expenses
+        this._state.net_balance = this._state.total_income - this._state.total_expenses;
+        
+        // Paid/unpaid only applies to expenses
         this._state.total_paid = this._transactions
-            .filter(t => t.payment_status === 'paid')
+            .filter(t => t.type === 'expense' && t.payment_status === 'paid')
             .reduce((sum, t) => sum + t.amount, 0);
 
         this._state.total_unpaid = this._transactions
-            .filter(t => t.payment_status !== 'paid')
+            .filter(t => t.type === 'expense' && t.payment_status !== 'paid')
             .reduce((sum, t) => sum + t.amount, 0);
     }
 
@@ -224,8 +248,11 @@ export class Week {
             start: data.start,
             end: data.end,
             total_amount: data.total_amount || 0,
+            total_income: data.total_income || 0,
+            total_expenses: data.total_expenses || 0,
             total_paid: data.total_paid || 0,
             total_unpaid: data.total_unpaid || 0,
+            net_balance: data.net_balance || 0,
             status: data.status || ((data as WeekData & { active?: boolean }).active ? 'active' : 'closed'),
             closed_date: data.closed_date || null,
             previous_week_id: data.previous_week_id || null,
@@ -234,6 +261,8 @@ export class Week {
             updated: data.updated
         };
         week._transactions = (data.transactions || []).map(t => Transaction.fromJSON(t));
+        // Recalculate totals to ensure consistency with loaded transactions
+        week.calculateTotals();
         return week;
     }
 }

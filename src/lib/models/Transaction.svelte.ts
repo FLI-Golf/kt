@@ -1,11 +1,13 @@
 import { generateId } from '$lib/commands.svelte';
 
 export type PaymentStatus = 'pending' | 'paid' | 'unpaid';
+export type TransactionType = 'expense' | 'income';
 
 export interface TransactionData {
     id: string;
     description: string;
     amount: number;
+    type: TransactionType;
     category_ids: string[];
     payment_status: PaymentStatus;
     paid_date: string | null;
@@ -19,6 +21,7 @@ export class Transaction {
         id: '',
         description: '',
         amount: 0,
+        type: 'expense',
         category_ids: [],
         payment_status: 'pending',
         paid_date: null,
@@ -38,12 +41,17 @@ export class Transaction {
     get id() { return this._state.id; }
     get description() { return this._state.description; }
     get amount() { return this._state.amount; }
+    get type() { return this._state.type; }
     get category_ids() { return this._state.category_ids; }
     get payment_status() { return this._state.payment_status; }
     get paid_date() { return this._state.paid_date; }
     get note() { return this._state.note; }
     get created() { return this._state.created; }
     get updated() { return this._state.updated; }
+    
+    // Helper to check if this is income
+    get isIncome() { return this._state.type === 'income'; }
+    get isExpense() { return this._state.type === 'expense'; }
 
     // Setters with auto-update timestamp
     set description(value: string) {
@@ -63,6 +71,11 @@ export class Transaction {
 
     set note(value: string) {
         this._state.note = value;
+        this.touch();
+    }
+
+    set type(value: TransactionType) {
+        this._state.type = value;
         this.touch();
     }
 
@@ -111,6 +124,7 @@ export class Transaction {
         const transaction = new Transaction();
         transaction._state = {
             ...data,
+            type: data.type || 'expense',
             payment_status: data.payment_status || 'pending',
             paid_date: data.paid_date || null,
             category_ids: data.category_ids || []

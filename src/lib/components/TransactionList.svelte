@@ -12,7 +12,7 @@
 
 	let { transactions, onAddTransaction, onEditTransaction, onDeleteTransaction }: Props = $props();
 
-	type SortField = 'description' | 'amount' | 'category' | 'status';
+	type SortField = 'description' | 'amount' | 'category' | 'status' | 'type';
 	type SortDirection = 'asc' | 'desc';
 
 	let sortField = $state<SortField>('description');
@@ -48,6 +48,10 @@
 				aVal = a.payment_status;
 				bVal = b.payment_status;
 				break;
+			case 'type':
+				aVal = a.type;
+				bVal = b.type;
+				break;
 			default:
 				aVal = a.description.toLowerCase();
 				bVal = b.description.toLowerCase();
@@ -71,6 +75,12 @@
 		}
 	};
 
+	const getTypeBadge = (type: string) => {
+		return type === 'income' 
+			? 'bg-green-100 text-green-700' 
+			: 'bg-red-100 text-red-700';
+	};
+
 	const getCategoryNames = (categoryIds: string[]) => {
 		return categoryIds.map(id => appStore.getCategoryFullName(id)).filter(Boolean);
 	};
@@ -78,17 +88,22 @@
 
 <Card class="w-full">
 	<Header class="flex flex-row items-center justify-between">
-		<Title class="text-xl font-bold">Expenses ({transactions.length})</Title>
-		<Button onclick={onAddTransaction} size="sm">+ Add Expense</Button>
+		<Title class="text-xl font-bold">Transactions ({transactions.length})</Title>
+		<Button onclick={onAddTransaction} size="sm">+ Add Transaction</Button>
 	</Header>
 	<Content class="p-4">
 		{#if transactions.length === 0}
-			<p class="text-center text-gray-500">No expenses yet. Add one to get started.</p>
+			<p class="text-center text-gray-500">No transactions yet. Add one to get started.</p>
 		{:else}
 			<div class="overflow-x-auto">
 				<table class="w-full">
 					<thead>
 						<tr class="border-b text-left text-sm text-gray-600">
+							<th class="pb-2 font-medium">
+								<button onclick={() => toggleSort('type')} class="hover:text-indigo-600">
+									Type{getSortIndicator('type')}
+								</button>
+							</th>
 							<th class="pb-2 font-medium">
 								<button onclick={() => toggleSort('description')} class="hover:text-indigo-600">
 									Description{getSortIndicator('description')}
@@ -117,6 +132,11 @@
 							{@const categories = getCategoryNames(transaction.category_ids)}
 							<tr class="border-b last:border-0">
 								<td class="py-3">
+									<span class="rounded px-2 py-0.5 text-xs font-medium {getTypeBadge(transaction.type)}">
+										{transaction.type}
+									</span>
+								</td>
+								<td class="py-3">
 									<span class="font-medium">{transaction.description}</span>
 									{#if transaction.note}
 										<p class="text-xs text-gray-500">{transaction.note}</p>
@@ -135,13 +155,17 @@
 										<span class="text-gray-400">-</span>
 									{/if}
 								</td>
-								<td class="py-3 text-right font-medium">
-									${transaction.amount.toFixed(2)}
+								<td class="py-3 text-right font-medium {transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}">
+									{transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
 								</td>
 								<td class="py-3 text-center">
-									<span class="rounded px-2 py-0.5 text-xs font-medium {getStatusBadge(transaction.payment_status)}">
-										{transaction.payment_status}
-									</span>
+									{#if transaction.type === 'expense'}
+										<span class="rounded px-2 py-0.5 text-xs font-medium {getStatusBadge(transaction.payment_status)}">
+											{transaction.payment_status}
+										</span>
+									{:else}
+										<span class="text-gray-400">-</span>
+									{/if}
 								</td>
 								<td class="py-3 text-right">
 									<div class="flex justify-end gap-1">

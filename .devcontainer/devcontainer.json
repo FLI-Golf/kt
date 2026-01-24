@@ -8,5 +8,9 @@
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "lts"
 		}
+	},
+	"postCreateCommand": "npm install",
+	"remoteEnv": {
+		"PATH": "/home/vscode/.cargo/bin:${containerEnv:PATH}"
 	}
 }

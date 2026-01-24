@@ -87,8 +87,8 @@
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-start justify-between">
 			<div>
-				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
-				<p class="text-gray-600">Weekly Expense Management</p>
+				<h1 class="text-3xl font-bold text-gray-900">Finance Tracker</h1>
+				<p class="text-gray-600">Weekly Income & Expense Management</p>
 			</div>
 			<SyncStatus />
 		</header>
