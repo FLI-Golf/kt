@@ -16,7 +16,7 @@ export default defineConfig({
   server: {
     host: true,
     port: 1420,
-    strictPort: true,
-    allowedHosts: [".app.github.dev"]
+    strictPort: false,
+    allowedHosts: [".app.github.dev", ".gitpod.dev"]
   }
 });

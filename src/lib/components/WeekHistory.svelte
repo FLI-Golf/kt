@@ -49,11 +49,9 @@
 						<tr class="border-b text-left text-sm text-gray-600">
 							<th class="pb-2 font-medium">Week</th>
 							<th class="pb-2 font-medium">Dates</th>
-							<th class="pb-2 text-right font-medium">In</th>
-							<th class="pb-2 text-right font-medium">Out</th>
-							<th class="pb-2 text-right font-medium">Vig</th>
-							<th class="pb-2 text-right font-medium">Result</th>
-							<th class="pb-2 text-right font-medium">Collected</th>
+							<th class="pb-2 text-right font-medium">Total</th>
+							<th class="pb-2 text-right font-medium">Paid</th>
+							<th class="pb-2 text-right font-medium">Unpaid</th>
 							<th class="pb-2 text-right font-medium">Actions</th>
 						</tr>
 					</thead>
@@ -64,22 +62,14 @@
 								<td class="py-3 text-sm text-gray-600">
 									{formatDate(week.start)} - {formatDate(week.end)}
 								</td>
+								<td class="py-3 text-right text-blue-600">
+									${week.total_amount.toFixed(2)}
+								</td>
 								<td class="py-3 text-right text-green-600">
-									${week.in_total.toFixed(2)}
+									${week.total_paid.toFixed(2)}
 								</td>
 								<td class="py-3 text-right text-red-600">
-									${week.out_total.toFixed(2)}
-								</td>
-								<td class="py-3 text-right text-yellow-600">
-									${week.vig.toFixed(2)}
-								</td>
-								<td class="py-3 text-right font-medium {week.result >= 0 ? 'text-green-600' : 'text-red-600'}">
-									${week.result.toFixed(2)}
-								</td>
-								<td class="py-3 text-right">
-									<span class="{week.actual_collected >= week.expected_in ? 'text-green-600' : 'text-orange-600'}">
-										${week.actual_collected.toFixed(2)}
-									</span>
+									${week.total_unpaid.toFixed(2)}
 								</td>
 								<td class="py-3 text-right">
 									<Button

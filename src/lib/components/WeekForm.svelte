@@ -6,7 +6,7 @@
 
 	interface Props {
 		week?: Week;
-		onSave: (data: { name: string; start: string; end: string; vig: number }) => void;
+		onSave: (data: { name: string; start: string; end: string }) => void;
 		onCancel: () => void;
 	}
 
@@ -15,7 +15,6 @@
 	let name = $state(week?.name ?? '');
 	let start = $state(week?.start.split('T')[0] ?? new Date().toISOString().split('T')[0]);
 	let end = $state(week?.end.split('T')[0] ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-	let vig = $state(week?.vig ?? 0);
 
 	// Convert date string to ISO without timezone shift
 	const toLocalISOString = (dateStr: string) => {
@@ -28,8 +27,7 @@
 		onSave({
 			name,
 			start: toLocalISOString(start),
-			end: toLocalISOString(end),
-			vig
+			end: toLocalISOString(end)
 		});
 	};
 
@@ -74,17 +72,6 @@
 						required
 					/>
 				</div>
-			</div>
-			<div>
-				<label for="week-vig" class="text-sm font-medium">Vig Amount</label>
-				<Input
-					id="week-vig"
-					type="number"
-					step="0.01"
-					placeholder="0.00"
-					bind:value={vig}
-					class="mt-1"
-				/>
 			</div>
 		</Content>
 		<Footer class="flex justify-end gap-2 p-4">

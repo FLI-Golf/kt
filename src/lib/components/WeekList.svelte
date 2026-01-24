@@ -21,21 +21,19 @@
 			.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime())
 	);
 
-	// Calculate totals for active weeks (read-only, no state mutation)
+	// Calculate totals for active weeks
 	const activeWeeksTotals = $derived(() => {
-		let totalIn = 0;
-		let totalOut = 0;
-		let totalVig = 0;
-		let totalResult = 0;
+		let totalExpenses = 0;
+		let totalPaid = 0;
+		let totalUnpaid = 0;
 
 		for (const week of activeWeeks) {
-			totalIn += week.in_total;
-			totalOut += week.out_total;
-			totalVig += week.vig;
-			totalResult += week.result;
+			totalExpenses += week.total_amount;
+			totalPaid += week.total_paid;
+			totalUnpaid += week.total_unpaid;
 		}
 
-		return { totalIn, totalOut, totalVig, totalResult };
+		return { totalExpenses, totalPaid, totalUnpaid };
 	});
 
 	const getStatusBadge = (status: string) => {
@@ -57,24 +55,18 @@
 				<Title class="text-lg font-bold">Current Week Totals</Title>
 			</Header>
 			<Content class="p-4">
-				<div class="grid grid-cols-4 gap-4 text-center">
+				<div class="grid grid-cols-3 gap-4 text-center">
+					<div class="rounded-lg bg-blue-50 p-3">
+						<p class="text-sm text-gray-600">Total Expenses</p>
+						<p class="text-xl font-bold text-blue-600">${totals.totalExpenses.toFixed(2)}</p>
+					</div>
 					<div class="rounded-lg bg-green-50 p-3">
-						<p class="text-sm text-gray-600">In</p>
-						<p class="text-xl font-bold text-green-600">${totals.totalIn.toFixed(2)}</p>
+						<p class="text-sm text-gray-600">Paid</p>
+						<p class="text-xl font-bold text-green-600">${totals.totalPaid.toFixed(2)}</p>
 					</div>
 					<div class="rounded-lg bg-red-50 p-3">
-						<p class="text-sm text-gray-600">Out</p>
-						<p class="text-xl font-bold text-red-600">${totals.totalOut.toFixed(2)}</p>
-					</div>
-					<div class="rounded-lg bg-yellow-50 p-3">
-						<p class="text-sm text-gray-600">Vig</p>
-						<p class="text-xl font-bold text-yellow-600">${totals.totalVig.toFixed(2)}</p>
-					</div>
-					<div class="rounded-lg {totals.totalResult >= 0 ? 'bg-green-100' : 'bg-red-100'} p-3">
-						<p class="text-sm text-gray-600">Result</p>
-						<p class="text-xl font-bold {totals.totalResult >= 0 ? 'text-green-700' : 'text-red-700'}">
-							${totals.totalResult.toFixed(2)}
-						</p>
+						<p class="text-sm text-gray-600">Unpaid</p>
+						<p class="text-xl font-bold text-red-600">${totals.totalUnpaid.toFixed(2)}</p>
 					</div>
 				</div>
 			</Content>
@@ -110,28 +102,13 @@
 									</p>
 								</div>
 								<div class="text-right">
-									<p class="text-sm">
-										<span class="text-green-600">+${week.in_total.toFixed(2)}</span>
-										/
-										<span class="text-red-600">-${week.out_total.toFixed(2)}</span>
+									<p class="text-lg font-bold text-blue-600">
+										${week.total_amount.toFixed(2)}
 									</p>
-									<p class="text-sm font-medium {week.result >= 0 ? 'text-green-600' : 'text-red-600'}">
-										Result: ${week.result.toFixed(2)}
+									<p class="text-sm text-gray-500">
+										{week.transactionCount} expense{week.transactionCount !== 1 ? 's' : ''}
 									</p>
 								</div>
-							</div>
-							<div class="mt-1 flex items-center gap-2">
-								<span class="text-xs text-gray-400">{week.playerCount} players</span>
-								{#if week.total_carried_in > 0}
-									<span class="rounded bg-yellow-100 px-1.5 py-0.5 text-xs text-yellow-700">
-										Carry In: ${week.total_carried_in.toFixed(2)}
-									</span>
-								{/if}
-								{#if week.isClosed && week.total_carried_out > 0}
-									<span class="rounded bg-orange-100 px-1.5 py-0.5 text-xs text-orange-700">
-										Carry Out: ${week.total_carried_out.toFixed(2)}
-									</span>
-								{/if}
 							</div>
 						</button>
 					{/each}

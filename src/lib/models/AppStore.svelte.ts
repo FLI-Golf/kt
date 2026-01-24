@@ -1,5 +1,6 @@
 import { Week, type WeekData } from './Week.svelte';
-import { Player, type PlayerData } from './Player.svelte';
+import { Category, type CategoryData, DEFAULT_CATEGORIES } from './Category.svelte';
+import { CommonTransaction, type CommonTransactionData } from './CommonTransaction.svelte';
 import { pbService } from '$lib/services';
 
 const STORAGE_KEY = 'kt_app_data';
@@ -8,7 +9,8 @@ const DISABLE_CLOUD_SYNC =
 
 interface AppData {
     weeks: WeekData[];
-    players: PlayerData[];
+    categories: CategoryData[];
+    commonTransactions: CommonTransactionData[];
     activeWeekId: string | null;
     version: number;
 }
@@ -17,7 +19,8 @@ export type SyncState = 'idle' | 'syncing' | 'success' | 'error';
 
 export class AppStore {
     private _weeks = $state<Week[]>([]);
-    private _players = $state<Player[]>([]);
+    private _categories = $state<Category[]>([]);
+    private _commonTransactions = $state<CommonTransaction[]>([]);
     private _activeWeekId = $state<string | null>(null);
     private _initialized = $state(false);
     private _syncState = $state<SyncState>('idle');
@@ -27,7 +30,8 @@ export class AppStore {
 
     // Getters
     get weeks() { return this._weeks; }
-    get players() { return this._players; }
+    get categories() { return this._categories; }
+    get commonTransactions() { return this._commonTransactions; }
     get activeWeekId() { return this._activeWeekId; }
     get initialized() { return this._initialized; }
     get syncState() { return this._syncState; }
@@ -35,7 +39,7 @@ export class AppStore {
     get lastSynced() { return this._lastSynced; }
     get isCloudEnabled() { 
         return !DISABLE_CLOUD_SYNC && pbService.isConfigured; 
-        }
+    }
 
     get activeWeek(): Week | undefined {
         if (!this._activeWeekId) return undefined;
@@ -54,10 +58,42 @@ export class AppStore {
         return this._weeks.length;
     }
 
-    get playerCount() {
-        return this._players.length;
+    get categoryCount() {
+        return this._categories.length;
     }
-    
+
+    get commonTransactionCount() {
+        return this._commonTransactions.length;
+    }
+
+    // Get parent categories (no parent_id)
+    get parentCategories() {
+        return this._categories.filter(c => c.parent_id === null);
+    }
+
+    // Get child categories for a parent
+    getChildCategories(parentId: string) {
+        return this._categories.filter(c => c.parent_id === parentId);
+    }
+
+    // Get category by ID
+    getCategory(id: string): Category | undefined {
+        return this._categories.find(c => c.id === id);
+    }
+
+    // Get category name with parent prefix
+    getCategoryFullName(id: string): string {
+        const category = this.getCategory(id);
+        if (!category) return '';
+        
+        if (category.parent_id) {
+            const parent = this.getCategory(category.parent_id);
+            if (parent) {
+                return `${parent.name} > ${category.name}`;
+            }
+        }
+        return category.name;
+    }
 
     // Initialization
     async init() {
@@ -65,6 +101,12 @@ export class AppStore {
         
         // First load from localStorage for immediate display
         this.loadLocal();
+        
+        // Initialize default categories if none exist
+        if (this._categories.length === 0) {
+            this.initializeDefaultCategories();
+        }
+        
         this._initialized = true;
 
         // Then try to sync from cloud
@@ -76,30 +118,81 @@ export class AppStore {
         }
     }
 
-    // Player Roster Management
-    addPlayer(name: string, account_number: number): Player {
-        const player = new Player(name, account_number);
-        this._players.push(player);
+    // Initialize default expense categories
+    private initializeDefaultCategories() {
+        for (const cat of DEFAULT_CATEGORIES) {
+            const parent = new Category(cat.name, null);
+            this._categories.push(parent);
+            
+            if (cat.children) {
+                for (const childName of cat.children) {
+                    const child = new Category(childName, parent.id);
+                    this._categories.push(child);
+                }
+            }
+        }
         this.save();
-        return player;
     }
 
-    removePlayer(id: string): boolean {
-        const index = this._players.findIndex(p => p.id === id);
+    // Category Management
+    addCategory(name: string, parentId: string | null = null): Category {
+        const category = new Category(name, parentId);
+        this._categories.push(category);
+        this.save();
+        return category;
+    }
+
+    removeCategory(id: string): boolean {
+        // Also remove child categories
+        const children = this.getChildCategories(id);
+        for (const child of children) {
+            const childIndex = this._categories.findIndex(c => c.id === child.id);
+            if (childIndex !== -1) {
+                this._categories.splice(childIndex, 1);
+            }
+        }
+        
+        const index = this._categories.findIndex(c => c.id === id);
         if (index !== -1) {
-            this._players.splice(index, 1);
+            this._categories.splice(index, 1);
             this.save();
             return true;
         }
         return false;
     }
 
-    getPlayer(id: string): Player | undefined {
-        return this._players.find(p => p.id === id);
+    // Common Transaction Management
+    addCommonTransaction(description: string, default_amount: number = 0, category_ids: string[] = []): CommonTransaction {
+        const ct = new CommonTransaction(description, default_amount, category_ids);
+        this._commonTransactions.push(ct);
+        this.save();
+        return ct;
     }
 
-    getPlayerByAccount(account_number: number): Player | undefined {
-        return this._players.find(p => p.account_number === account_number);
+    removeCommonTransaction(id: string): boolean {
+        const index = this._commonTransactions.findIndex(ct => ct.id === id);
+        if (index !== -1) {
+            this._commonTransactions.splice(index, 1);
+            this.save();
+            return true;
+        }
+        return false;
+    }
+
+    getCommonTransaction(id: string): CommonTransaction | undefined {
+        return this._commonTransactions.find(ct => ct.id === id);
+    }
+
+    updateCommonTransaction(id: string, data: { description?: string; default_amount?: number; category_ids?: string[] }): boolean {
+        const ct = this.getCommonTransaction(id);
+        if (ct) {
+            if (data.description !== undefined) ct.description = data.description;
+            if (data.default_amount !== undefined) ct.default_amount = data.default_amount;
+            if (data.category_ids !== undefined) ct.category_ids = data.category_ids;
+            this.save();
+            return true;
+        }
+        return false;
     }
 
     // Week Management
@@ -132,28 +225,7 @@ export class AppStore {
         this.save();
     }
 
-
-    // Duplicate a week (for starting a new week based on previous)
-    duplicateWeek(id: string, newName: string): Week | undefined {
-        const source = this.getWeek(id);
-        if (!source) return undefined;
-
-        const newWeek = this.createWeek(newName);
-        
-        // Copy players without amounts (fresh start)
-        for (const player of source.players) {
-            const newPlayer = newWeek.addPlayer(player.name, player.account_number);
-            // Optionally carry over the result as carry_amount
-            if (player.result !== 0) {
-                newPlayer.carryOver(player.result, source.id);
-            }
-        }
-
-        this.save();
-        return newWeek;
-    }
-
-    // Create next week from a closed week with carry forwards
+    // Create next week from a closed week
     createNextWeekFromClosed(closedWeekId: string): Week | undefined {
         const closedWeek = this.getWeek(closedWeekId);
         if (!closedWeek || !closedWeek.isClosed) return undefined;
@@ -164,13 +236,12 @@ export class AppStore {
 
         // Set date range - start day after closed week's end
         const closedEndDate = new Date(closedWeek.end);
-        // Add 1 day to get the next day, use noon to avoid timezone shifts
         const startDate = new Date(closedEndDate);
         startDate.setDate(startDate.getDate() + 1);
         startDate.setHours(12, 0, 0, 0);
         
         const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6); // 7 day week (start + 6 days)
+        endDate.setDate(endDate.getDate() + 6);
         endDate.setHours(12, 0, 0, 0);
         
         newWeek.start = startDate.toISOString();
@@ -180,15 +251,6 @@ export class AppStore {
         newWeek.previous_week_id = closedWeek.id;
         closedWeek.next_week_id = newWeek.id;
 
-        // Get carry forward data
-        const carries = closedWeek.getCarryForwardData();
-
-        // Add players with carry amounts
-        for (const carry of carries) {
-            const newPlayer = newWeek.addPlayer(carry.name, carry.account_number);
-            newPlayer.carryOver(carry.carry_amount, closedWeek.id);
-        }
-
         newWeek.calculateTotals();
         newWeek.activate();
         this.save();
@@ -196,37 +258,33 @@ export class AppStore {
         return newWeek;
     }
 
-
-    // Get running balance across all weeks
-    getRunningBalance(): { 
-        totalExpected: number; 
-        totalCollected: number; 
-        totalOutstanding: number;
-        weeklyBreakdown: { weekId: string; weekName: string; expected: number; collected: number; outstanding: number }[] 
+    // Get expense summary across all weeks
+    getExpenseSummary(): { 
+        totalExpenses: number; 
+        totalPaid: number; 
+        totalUnpaid: number;
+        byCategory: Map<string, number>;
     } {
-        let totalExpected = 0;
-        let totalCollected = 0;
-        const weeklyBreakdown: { weekId: string; weekName: string; expected: number; collected: number; outstanding: number }[] = [];
+        let totalExpenses = 0;
+        let totalPaid = 0;
+        const byCategory = new Map<string, number>();
 
         for (const week of this._weeks) {
-            if (week.isClosed) {
-                totalExpected += week.expected_in;
-                totalCollected += week.actual_collected;
-                weeklyBreakdown.push({
-                    weekId: week.id,
-                    weekName: week.name,
-                    expected: week.expected_in,
-                    collected: week.actual_collected,
-                    outstanding: week.uncollected
-                });
+            totalExpenses += week.total_amount;
+            totalPaid += week.total_paid;
+            
+            const weekCategories = week.getTotalsByCategory();
+            for (const [catId, amount] of weekCategories) {
+                const current = byCategory.get(catId) || 0;
+                byCategory.set(catId, current + amount);
             }
         }
 
         return {
-            totalExpected,
-            totalCollected,
-            totalOutstanding: totalExpected - totalCollected,
-            weeklyBreakdown
+            totalExpenses,
+            totalPaid,
+            totalUnpaid: totalExpenses - totalPaid,
+            byCategory
         };
     }
 
@@ -234,16 +292,23 @@ export class AppStore {
     private getAppData(): AppData {
         return {
             weeks: this._weeks.map(w => w.toJSON()),
-            players: this._players.map(p => p.toJSON()),
+            categories: this._categories.map(c => c.toJSON()),
+            commonTransactions: this._commonTransactions.map(ct => ct.toJSON()),
             activeWeekId: this._activeWeekId,
-            version: 1
+            version: 2
         };
     }
 
     private applyAppData(data: AppData) {
         this._weeks = data.weeks.map(w => Week.fromJSON(w));
-        this._players = (data.players || []).map(p => Player.fromJSON(p));
+        this._categories = (data.categories || []).map(c => Category.fromJSON(c));
+        this._commonTransactions = (data.commonTransactions || []).map(ct => CommonTransaction.fromJSON(ct));
         this._activeWeekId = data.activeWeekId;
+        
+        // Initialize default categories if none exist after loading
+        if (this._categories.length === 0) {
+            this.initializeDefaultCategories();
+        }
     }
 
     private async syncToCloud() {
@@ -257,7 +322,7 @@ export class AppStore {
         this._syncError = null;
 
         try {
-            await pbService.writeAppState(this.getAppData(), 1);
+            await pbService.writeAppState(this.getAppData(), 2);
             this._syncState = 'success';
             this._lastSynced = new Date().toISOString();
             setTimeout(() => {
@@ -292,7 +357,6 @@ export class AppStore {
             console.error('Failed to load app data locally:', e);
         }
     }
-
 
     async syncFromCloud(): Promise<boolean> {
         if (DISABLE_CLOUD_SYNC || !pbService.isConfigured) {
@@ -339,7 +403,7 @@ export class AppStore {
         if (pbService.isConfigured) {
             this._saveTimeout = setTimeout(() => {
                 this.syncToCloud();
-            }, 1000); // Wait 1 second after last change before syncing
+            }, 1000);
         }
     }
 
@@ -354,7 +418,8 @@ export class AppStore {
 
     clear() {
         this._weeks = [];
-        this._players = [];
+        this._categories = [];
+        this._commonTransactions = [];
         this._activeWeekId = null;
         if (typeof localStorage !== 'undefined') {
             localStorage.removeItem(STORAGE_KEY);
@@ -367,20 +432,15 @@ export class AppStore {
 
     // Export/Import for backup
     export(): string {
-        const data: AppData = {
-            weeks: this._weeks.map(w => w.toJSON()),
-            players: this._players.map(p => p.toJSON()),
-            activeWeekId: this._activeWeekId,
-            version: 1
-        };
-        return JSON.stringify(data, null, 2);
+        return JSON.stringify(this.getAppData(), null, 2);
     }
 
     import(jsonString: string): boolean {
         try {
             const data: AppData = JSON.parse(jsonString);
             this._weeks = data.weeks.map(w => Week.fromJSON(w));
-            this._players = (data.players || []).map(p => Player.fromJSON(p));
+            this._categories = (data.categories || []).map(c => Category.fromJSON(c));
+            this._commonTransactions = (data.commonTransactions || []).map(ct => CommonTransaction.fromJSON(ct));
             this._activeWeekId = data.activeWeekId;
             this.save();
             return true;

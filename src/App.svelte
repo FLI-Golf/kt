@@ -30,11 +30,10 @@
 		currentView = 'create';
 	};
 
-	const handleSaveNewWeek = (data: { name: string; start: string; end: string; vig: number }) => {
+	const handleSaveNewWeek = (data: { name: string; start: string; end: string }) => {
 		const week = appStore.createWeek(data.name);
 		week.start = data.start;
 		week.end = data.end;
-		week.vig = data.vig;
 		week.activate();
 		appStore.save();
 		selectedWeek = week;
@@ -45,12 +44,11 @@
 		currentView = 'edit';
 	};
 
-	const handleUpdateWeek = (data: { name: string; start: string; end: string; vig: number }) => {
+	const handleUpdateWeek = (data: { name: string; start: string; end: string }) => {
 		if (selectedWeek) {
 			selectedWeek.name = data.name;
 			selectedWeek.start = data.start;
 			selectedWeek.end = data.end;
-			selectedWeek.vig = data.vig;
 			selectedWeek.calculateTotals();
 			appStore.save();
 		}
@@ -88,8 +86,8 @@
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-start justify-between">
 			<div>
-				<h1 class="text-3xl font-bold text-gray-900">KT</h1>
-				<p class="text-gray-600">Weekly Player Tracking</p>
+				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
+				<p class="text-gray-600">Weekly Expense Management</p>
 			</div>
 			<SyncStatus />
 		</header>
