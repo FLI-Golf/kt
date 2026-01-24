@@ -39,9 +39,10 @@
 		return new Date(iso).toLocaleDateString();
 	};
 
-	const handleAddTransaction = (data: { description: string; amount: number; category_ids: string[]; note: string }) => {
+	const handleAddTransaction = (data: { description: string; amount: number; type: 'expense' | 'income'; category_ids: string[]; note: string }) => {
 		const transaction = week.addTransaction(data.description);
 		transaction.amount = data.amount;
+		transaction.type = data.type;
 		transaction.category_ids = data.category_ids;
 		transaction.note = data.note;
 		week.calculateTotals();
@@ -49,12 +50,13 @@
 		showAddTransaction = false;
 	};
 
-	const handleEditTransaction = (data: { description: string; amount: number; category_ids: string[]; note: string }) => {
+	const handleEditTransaction = (data: { description: string; amount: number; type: 'expense' | 'income'; category_ids: string[]; note: string }) => {
 		if (!editingTransactionId) return;
 		const transaction = week.getTransaction(editingTransactionId);
 		if (transaction) {
 			transaction.description = data.description;
 			transaction.amount = data.amount;
+			transaction.type = data.type;
 			transaction.category_ids = data.category_ids;
 			transaction.note = data.note;
 			week.calculateTotals();
@@ -171,18 +173,24 @@
 				</div>
 			</Header>
 			<Content class="p-4">
-				<div class="grid grid-cols-3 gap-4 text-center">
-					<div class="rounded-lg bg-blue-50 p-3">
-						<p class="text-sm text-gray-600">Total Expenses</p>
-						<p class="text-xl font-bold text-blue-600">${week.total_amount.toFixed(2)}</p>
-					</div>
+				<div class="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
 					<div class="rounded-lg bg-green-50 p-3">
-						<p class="text-sm text-gray-600">Paid</p>
-						<p class="text-xl font-bold text-green-600">${week.total_paid.toFixed(2)}</p>
+						<p class="text-sm text-gray-600">Income</p>
+						<p class="text-xl font-bold text-green-600">+${week.total_income.toFixed(2)}</p>
 					</div>
 					<div class="rounded-lg bg-red-50 p-3">
-						<p class="text-sm text-gray-600">Unpaid</p>
-						<p class="text-xl font-bold text-red-600">${week.total_unpaid.toFixed(2)}</p>
+						<p class="text-sm text-gray-600">Expenses</p>
+						<p class="text-xl font-bold text-red-600">-${week.total_expenses.toFixed(2)}</p>
+					</div>
+					<div class="rounded-lg p-3 {week.net_balance >= 0 ? 'bg-blue-50' : 'bg-orange-50'}">
+						<p class="text-sm text-gray-600">Net Balance</p>
+						<p class="text-xl font-bold {week.net_balance >= 0 ? 'text-blue-600' : 'text-orange-600'}">
+							{week.net_balance >= 0 ? '+' : ''}${week.net_balance.toFixed(2)}
+						</p>
+					</div>
+					<div class="rounded-lg bg-gray-50 p-3">
+						<p class="text-sm text-gray-600">Unpaid Expenses</p>
+						<p class="text-xl font-bold text-gray-600">${week.total_unpaid.toFixed(2)}</p>
 					</div>
 				</div>
 			</Content>

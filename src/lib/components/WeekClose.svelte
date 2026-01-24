@@ -11,10 +11,19 @@
 
 	let { week, onCancel, onFinalize }: Props = $props();
 
-	// Sort transactions by description
-	const sortedTransactions = $derived([...week.transactions].sort((a, b) => 
-		a.description.localeCompare(b.description)
-	));
+	// Sort transactions by type (expenses first), then by description
+	const sortedTransactions = $derived([...week.transactions].sort((a, b) => {
+		// Expenses first, then income
+		if (a.type !== b.type) {
+			return a.type === 'expense' ? -1 : 1;
+		}
+		return a.description.localeCompare(b.description);
+	}));
+	
+	// Only expenses need payment status review
+	const expenseTransactions = $derived(week.transactions.filter(t => t.type === 'expense'));
+	const incomeTransactions = $derived(week.transactions.filter(t => t.type === 'income'));
+	const pendingExpenses = $derived(expenseTransactions.filter(t => t.payment_status === 'pending'));
 
 	const handleMarkPaid = (transactionId: string) => {
 		const transaction = week.getTransaction(transactionId);
@@ -51,8 +60,8 @@
 		onFinalize();
 	};
 
-	// Check if all transactions have been reviewed (no pending)
-	const allReviewed = $derived(week.transactionsPending.length === 0);
+	// Check if all expense transactions have been reviewed (no pending)
+	const allReviewed = $derived(pendingExpenses.length === 0);
 
 	const getStatusBadge = (status: string) => {
 		switch (status) {
@@ -91,18 +100,24 @@
 		</Header>
 		<Content class="p-4">
 			<!-- Summary Stats -->
-			<div class="mb-6 grid grid-cols-3 gap-4 text-center">
-				<div class="rounded-lg bg-blue-50 p-3">
-					<p class="text-sm text-gray-600">Total Expenses</p>
-					<p class="text-xl font-bold text-blue-600">${week.total_amount.toFixed(2)}</p>
-				</div>
+			<div class="mb-6 grid grid-cols-2 gap-4 text-center md:grid-cols-4">
 				<div class="rounded-lg bg-green-50 p-3">
-					<p class="text-sm text-gray-600">Paid</p>
-					<p class="text-xl font-bold text-green-600">${week.total_paid.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">Income</p>
+					<p class="text-xl font-bold text-green-600">+${week.total_income.toFixed(2)}</p>
 				</div>
 				<div class="rounded-lg bg-red-50 p-3">
-					<p class="text-sm text-gray-600">Unpaid</p>
-					<p class="text-xl font-bold text-red-600">${week.total_unpaid.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">Expenses</p>
+					<p class="text-xl font-bold text-red-600">-${week.total_expenses.toFixed(2)}</p>
+				</div>
+				<div class="rounded-lg p-3 {week.net_balance >= 0 ? 'bg-blue-50' : 'bg-orange-50'}">
+					<p class="text-sm text-gray-600">Net Balance</p>
+					<p class="text-xl font-bold {week.net_balance >= 0 ? 'text-blue-600' : 'text-orange-600'}">
+						{week.net_balance >= 0 ? '+' : ''}${week.net_balance.toFixed(2)}
+					</p>
+				</div>
+				<div class="rounded-lg bg-gray-50 p-3">
+					<p class="text-sm text-gray-600">Unpaid Expenses</p>
+					<p class="text-xl font-bold text-gray-600">${week.total_unpaid.toFixed(2)}</p>
 				</div>
 			</div>
 
@@ -121,16 +136,16 @@
 				</div>
 			{/if}
 
-			<!-- Progress -->
+			<!-- Progress (only for expenses) -->
 			<div class="mb-4">
 				<div class="flex justify-between text-sm">
-					<span>Review Progress</span>
-					<span>{week.transactions.length - week.transactionsPending.length} / {week.transactions.length} reviewed</span>
+					<span>Expense Review Progress</span>
+					<span>{expenseTransactions.length - pendingExpenses.length} / {expenseTransactions.length} reviewed</span>
 				</div>
 				<div class="mt-1 h-2 w-full rounded-full bg-gray-200">
 					<div 
 						class="h-2 rounded-full bg-indigo-500 transition-all"
-						style="width: {week.transactions.length > 0 ? ((week.transactions.length - week.transactionsPending.length) / week.transactions.length) * 100 : 0}%"
+						style="width: {expenseTransactions.length > 0 ? ((expenseTransactions.length - pendingExpenses.length) / expenseTransactions.length) * 100 : 100}%"
 					></div>
 				</div>
 			</div>
@@ -142,12 +157,40 @@
 				</Button>
 			</div>
 
-			<!-- Transaction List -->
-			{#if sortedTransactions.length === 0}
+			<!-- Income List (if any) -->
+			{#if incomeTransactions.length > 0}
+				<div class="mb-4">
+					<h3 class="text-sm font-medium text-gray-700 mb-2">Income ({incomeTransactions.length})</h3>
+					<div class="space-y-2">
+						{#each incomeTransactions as transaction (transaction.id)}
+							{@const categories = getCategoryNames(transaction.category_ids)}
+							<div class="rounded-lg border border-green-200 bg-green-50 p-3">
+								<div class="flex items-start justify-between">
+									<div>
+										<span class="font-medium">{transaction.description}</span>
+										{#if categories.length > 0}
+											<div class="mt-1 flex flex-wrap gap-1">
+												{#each categories as cat}
+													<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">{cat}</span>
+												{/each}
+											</div>
+										{/if}
+									</div>
+									<span class="font-medium text-green-600">+${transaction.amount.toFixed(2)}</span>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
+
+			<!-- Expense List -->
+			{#if expenseTransactions.length === 0}
 				<p class="text-center text-gray-500">No expenses in this week</p>
 			{:else}
+				<h3 class="text-sm font-medium text-gray-700 mb-2">Expenses ({expenseTransactions.length})</h3>
 				<div class="space-y-3">
-					{#each sortedTransactions as transaction (transaction.id)}
+					{#each sortedTransactions.filter(t => t.type === 'expense') as transaction (transaction.id)}
 						{@const categories = getCategoryNames(transaction.category_ids)}
 						<div class="rounded-lg border p-3 {transaction.payment_status === 'pending' ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}">
 							<div class="flex items-start justify-between">
@@ -168,7 +211,7 @@
 										</div>
 									{/if}
 									<div class="mt-1 text-sm text-gray-600">
-										<span class="font-medium text-blue-600">${transaction.amount.toFixed(2)}</span>
+										<span class="font-medium text-red-600">-${transaction.amount.toFixed(2)}</span>
 									</div>
 									{#if transaction.note}
 										<p class="text-xs text-gray-500 mt-1">{transaction.note}</p>

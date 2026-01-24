@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Transaction, appStore } from '$lib/models';
+	import { type Transaction, type TransactionType, appStore } from '$lib/models';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Card, Header, Title, Content, Footer } from '$lib/components/ui/card';
@@ -7,7 +7,7 @@
 
 	interface Props {
 		transaction?: Transaction;
-		onSave: (data: { description: string; amount: number; category_ids: string[]; note: string }) => void;
+		onSave: (data: { description: string; amount: number; type: TransactionType; category_ids: string[]; note: string }) => void;
 		onCancel: () => void;
 	}
 
@@ -15,6 +15,7 @@
 
 	let description = $state(transaction?.description ?? '');
 	let amount = $state(transaction?.amount ?? 0);
+	let type = $state<TransactionType>(transaction?.type ?? 'expense');
 	let category_ids = $state<string[]>(transaction?.category_ids ?? []);
 	let note = $state(transaction?.note ?? '');
 
@@ -23,6 +24,7 @@
 		onSave({
 			description,
 			amount,
+			type,
 			category_ids,
 			note
 		});
@@ -42,16 +44,35 @@
 
 <Card class="w-full max-w-2xl">
 	<Header>
-		<Title class="text-xl font-bold">{isEditing ? 'Edit Expense' : 'Add Expense'}</Title>
+		<Title class="text-xl font-bold">{isEditing ? 'Edit Transaction' : 'Add Transaction'}</Title>
 	</Header>
 	<form onsubmit={handleSubmit}>
 		<Content class="space-y-4 p-4">
+			<div>
+				<label class="text-sm font-medium">Type</label>
+				<div class="mt-1 flex gap-2">
+					<button
+						type="button"
+						onclick={() => type = 'expense'}
+						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {type === 'expense' ? 'bg-red-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+					>
+						Expense
+					</button>
+					<button
+						type="button"
+						onclick={() => type = 'income'}
+						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {type === 'income' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+					>
+						Income
+					</button>
+				</div>
+			</div>
 			<div>
 				<label for="transaction-description" class="text-sm font-medium">Description</label>
 				<Input
 					id="transaction-description"
 					type="text"
-					placeholder="e.g., Office supplies"
+					placeholder={type === 'income' ? 'e.g., Client payment' : 'e.g., Office supplies'}
 					bind:value={description}
 					class="mt-1"
 					required
