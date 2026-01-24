@@ -6,6 +6,7 @@
 	import TransactionList from './TransactionList.svelte';
 	import TransactionForm from './TransactionForm.svelte';
 	import CommonTransactionList from './CommonTransactionList.svelte';
+	import TransactionDropZone from './TransactionDropZone.svelte';
 	import WeekClose from './WeekClose.svelte';
 
 	interface Props {
@@ -210,6 +211,32 @@
 					{/if}
 				</div>
 			</div>
+		{:else}
+						<!-- Week Players (drop target) -->
+				<div class="lg:col-span-3">
+					{#if showAddPlayer}
+						<PlayerForm
+							onSave={handleAddPlayer}
+							onCancel={() => (showAddPlayer = false)}
+						/>
+					{:else if editingPlayer}
+						<PlayerForm
+							player={editingPlayer}
+							onSave={handleEditPlayer}
+							onCancel={() => (editingPlayerId = null)}
+						/>
+					{:else}
+						<TransactionDropZone onDrop={handleDropPlayer}>
+							<PlayerList
+								players={week.players}
+								onAddPlayer={() => (showAddPlayer = true)}
+								onEditPlayer={(id) => (editingPlayerId = id)}
+								onDeletePlayer={handleDeletePlayer}
+							/>
+						</TransactionDropZone>
+					{/if}
+				</div>
+	
 		{:else}
 			<!-- Read-only transaction list for closed weeks -->
 			<TransactionList
