@@ -100,6 +100,14 @@
 		}
 	};
 
+	const handleDropTransaction = (data: { description: string; category_ids: string[]; default_amount?: number }) => {
+		const transaction = week.addTransaction(data.description);
+		transaction.amount = data.default_amount || 0;
+		transaction.category_ids = [...data.category_ids];
+		week.calculateTotals();
+		appStore.save();
+	};
+
 	const editingTransaction = $derived(editingTransactionId ? week.getTransaction(editingTransactionId) : undefined);
 
 	const getStatusBadge = (status: string) => {
@@ -202,41 +210,17 @@
 							onCancel={() => (editingTransactionId = null)}
 						/>
 					{:else}
-						<TransactionList
-							transactions={week.transactions}
-							onAddTransaction={() => (showAddTransaction = true)}
-							onEditTransaction={(id) => (editingTransactionId = id)}
-							onDeleteTransaction={handleDeleteTransaction}
-						/>
-					{/if}
-				</div>
-			</div>
-		{:else}
-						<!-- Week Players (drop target) -->
-				<div class="lg:col-span-3">
-					{#if showAddPlayer}
-						<PlayerForm
-							onSave={handleAddPlayer}
-							onCancel={() => (showAddPlayer = false)}
-						/>
-					{:else if editingPlayer}
-						<PlayerForm
-							player={editingPlayer}
-							onSave={handleEditPlayer}
-							onCancel={() => (editingPlayerId = null)}
-						/>
-					{:else}
-						<TransactionDropZone onDrop={handleDropPlayer}>
-							<PlayerList
-								players={week.players}
-								onAddPlayer={() => (showAddPlayer = true)}
-								onEditPlayer={(id) => (editingPlayerId = id)}
-								onDeletePlayer={handleDeletePlayer}
+						<TransactionDropZone onDrop={handleDropTransaction}>
+							<TransactionList
+								transactions={week.transactions}
+								onAddTransaction={() => (showAddTransaction = true)}
+								onEditTransaction={(id) => (editingTransactionId = id)}
+								onDeleteTransaction={handleDeleteTransaction}
 							/>
 						</TransactionDropZone>
 					{/if}
 				</div>
-	
+			</div>
 		{:else}
 			<!-- Read-only transaction list for closed weeks -->
 			<TransactionList

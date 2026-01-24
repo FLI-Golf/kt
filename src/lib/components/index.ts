@@ -6,5 +6,6 @@ export { default as WeekHistory } from './WeekHistory.svelte';
 export { default as TransactionList } from './TransactionList.svelte';
 export { default as TransactionForm } from './TransactionForm.svelte';
 export { default as CategorySelector } from './CategorySelector.svelte';
+export { default as CategoryList } from './CategoryList.svelte';
 export { default as CommonTransactionList } from './CommonTransactionList.svelte';
 export { default as SyncStatus } from './SyncStatus.svelte';

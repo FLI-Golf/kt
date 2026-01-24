@@ -32,6 +32,18 @@
 	const getCategoryNames = (categoryIds: string[]) => {
 		return categoryIds.map(id => appStore.getCategoryFullName(id)).filter(Boolean);
 	};
+
+	const handleDragStart = (e: DragEvent, ct: CommonTransaction) => {
+		if (e.dataTransfer) {
+			e.dataTransfer.setData('application/json', JSON.stringify({
+				type: 'common-transaction',
+				description: ct.description,
+				category_ids: ct.category_ids,
+				default_amount: ct.default_amount
+			}));
+			e.dataTransfer.effectAllowed = 'copy';
+		}
+	};
 </script>
 
 <Card class="w-full">
@@ -109,7 +121,9 @@
 				{#each appStore.commonTransactions as ct (ct.id)}
 					{@const categories = getCategoryNames(ct.category_ids)}
 					<div
-						class="flex items-center justify-between rounded-lg border bg-white p-2 transition-all hover:border-indigo-300 hover:shadow-sm"
+						draggable="true"
+						ondragstart={(e) => handleDragStart(e, ct)}
+						class="flex items-center justify-between rounded-lg border bg-white p-2 transition-all hover:border-indigo-300 hover:shadow-sm cursor-grab active:cursor-grabbing"
 					>
 						<button
 							type="button"
