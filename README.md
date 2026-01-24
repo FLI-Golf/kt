@@ -2,6 +2,23 @@
 
 A tracking application built with Tauri 2, Svelte 5, and shadcn-svelte.
 
+## Useful Commands
+
+```bash
+# Start dev server
+npm run tauri dev
+
+# Build executable
+npm run tauri build
+
+# Run web-only dev server (no Tauri)
+npm run dev
+```
+
+## Use this command
+
+
+
 ## Install Rust
 
 curl https://sh.rustup.rs -sSf | sh -s -- -y

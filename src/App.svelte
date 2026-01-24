@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { appStore, type Week } from '$lib/models';
-	import { WeekList, WeekForm, WeekDetail, WeekHistory, SyncStatus } from '$lib/components';
+	import { WeekList, WeekForm, WeekDetail, WeekHistory, CategoryList, SyncStatus } from '$lib/components';
 
 	// Initialize store on mount
 	$effect(() => {
@@ -13,12 +13,13 @@
 	let selectedWeek = $state<Week | undefined>(undefined);
 	
 	// Tab state
-	type Tab = 'active' | 'history';
+	type Tab = 'active' | 'history' | 'categories';
 	let currentTab = $state<Tab>('active');
 
 	// Counts for badges
 	const activeCount = $derived(appStore.weeks.filter(w => !w.isClosed).length);
 	const historyCount = $derived(appStore.weeks.filter(w => w.isClosed).length);
+	const categoryCount = $derived(appStore.categoryCount);
 
 	const handleSelectWeek = (week: Week) => {
 		selectedWeek = week;
@@ -30,11 +31,10 @@
 		currentView = 'create';
 	};
 
-	const handleSaveNewWeek = (data: { name: string; start: string; end: string; vig: number }) => {
+	const handleSaveNewWeek = (data: { name: string; start: string; end: string }) => {
 		const week = appStore.createWeek(data.name);
 		week.start = data.start;
 		week.end = data.end;
-		week.vig = data.vig;
 		week.activate();
 		appStore.save();
 		selectedWeek = week;
@@ -45,12 +45,11 @@
 		currentView = 'edit';
 	};
 
-	const handleUpdateWeek = (data: { name: string; start: string; end: string; vig: number }) => {
+	const handleUpdateWeek = (data: { name: string; start: string; end: string }) => {
 		if (selectedWeek) {
 			selectedWeek.name = data.name;
 			selectedWeek.start = data.start;
 			selectedWeek.end = data.end;
-			selectedWeek.vig = data.vig;
 			selectedWeek.calculateTotals();
 			appStore.save();
 		}
@@ -88,8 +87,8 @@
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-start justify-between">
 			<div>
-				<h1 class="text-3xl font-bold text-gray-900">KT</h1>
-				<p class="text-gray-600">Weekly Player Tracking</p>
+				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
+				<p class="text-gray-600">Weekly Expense Management</p>
 			</div>
 			<SyncStatus />
 		</header>
@@ -122,13 +121,26 @@
 							</span>
 						{/if}
 					</button>
+					<button
+						onclick={() => currentTab = 'categories'}
+						class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors {currentTab === 'categories' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+					>
+						Categories
+						{#if categoryCount > 0}
+							<span class="rounded-full px-2 py-0.5 text-xs {currentTab === 'categories' ? 'bg-indigo-500 text-white' : 'bg-gray-300 text-gray-600'}">
+								{categoryCount}
+							</span>
+						{/if}
+					</button>
 				</div>
 
 				<!-- Tab Content -->
 				{#if currentTab === 'active'}
 					<WeekList onSelectWeek={handleSelectWeek} onCreateWeek={handleCreateWeek} />
-				{:else}
+				{:else if currentTab === 'history'}
 					<WeekHistory onSelectWeek={handleSelectWeek} />
+				{:else if currentTab === 'categories'}
+					<CategoryList />
 				{/if}
 			</div>
 		{:else if currentView === 'create'}

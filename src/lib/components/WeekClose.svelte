@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { type Week, appStore } from '$lib/models';
 	import { Button } from '$lib/components/ui/button';
-	import { Input } from '$lib/components/ui/input';
 	import { Card, Header, Title, Content, Footer } from '$lib/components/ui/card';
 
 	interface Props {
@@ -12,35 +11,24 @@
 
 	let { week, onCancel, onFinalize }: Props = $props();
 
-	// Sort players by account number
-	const sortedPlayers = $derived([...week.players].sort((a, b) => a.account_number - b.account_number));
+	// Sort transactions by description
+	const sortedTransactions = $derived([...week.transactions].sort((a, b) => 
+		a.description.localeCompare(b.description)
+	));
 
-	// Track partial payment amounts
-	let partialAmounts = $state<Record<string, number>>({});
-
-	const handleMarkPaid = (playerId: string) => {
-		const player = week.getPlayer(playerId);
-		if (player) {
-			player.markPaid();
+	const handleMarkPaid = (transactionId: string) => {
+		const transaction = week.getTransaction(transactionId);
+		if (transaction) {
+			transaction.markPaid();
 			week.calculateTotals();
 			appStore.save();
 		}
 	};
 
-	const handleMarkUnpaid = (playerId: string) => {
-		const player = week.getPlayer(playerId);
-		if (player) {
-			player.markUnpaid();
-			week.calculateTotals();
-			appStore.save();
-		}
-	};
-
-	const handleMarkPartial = (playerId: string) => {
-		const player = week.getPlayer(playerId);
-		const amount = partialAmounts[playerId] || 0;
-		if (player && amount > 0) {
-			player.markPartial(amount);
+	const handleMarkUnpaid = (transactionId: string) => {
+		const transaction = week.getTransaction(transactionId);
+		if (transaction) {
+			transaction.markUnpaid();
 			week.calculateTotals();
 			appStore.save();
 		}
@@ -63,16 +51,35 @@
 		onFinalize();
 	};
 
-	// Check if all players have been reviewed (no pending)
-	const allReviewed = $derived(week.playersPending.length === 0);
+	// Check if all transactions have been reviewed (no pending)
+	const allReviewed = $derived(week.transactionsPending.length === 0);
 
 	const getStatusBadge = (status: string) => {
 		switch (status) {
 			case 'paid': return 'bg-green-100 text-green-700';
 			case 'unpaid': return 'bg-red-100 text-red-700';
-			case 'partial': return 'bg-yellow-100 text-yellow-700';
 			default: return 'bg-gray-100 text-gray-700';
 		}
+	};
+
+	// Get category totals for summary
+	const categoryTotals = $derived(() => {
+		const totals = week.getTotalsByCategory();
+		const result: { id: string; name: string; amount: number }[] = [];
+		
+		for (const [catId, amount] of totals) {
+			result.push({
+				id: catId,
+				name: appStore.getCategoryFullName(catId),
+				amount
+			});
+		}
+		
+		return result.sort((a, b) => b.amount - a.amount);
+	});
+
+	const getCategoryNames = (categoryIds: string[]) => {
+		return categoryIds.map(id => appStore.getCategoryFullName(id)).filter(Boolean);
 	};
 </script>
 
@@ -80,39 +87,50 @@
 	<Card class="w-full">
 		<Header>
 			<Title class="text-xl font-bold">Close Week: {week.name}</Title>
-			<p class="text-sm text-gray-500">Review each player's payment status before closing</p>
+			<p class="text-sm text-gray-500">Review each expense's payment status before closing</p>
 		</Header>
 		<Content class="p-4">
 			<!-- Summary Stats -->
-			<div class="mb-6 grid grid-cols-4 gap-4 text-center">
+			<div class="mb-6 grid grid-cols-3 gap-4 text-center">
 				<div class="rounded-lg bg-blue-50 p-3">
-					<p class="text-sm text-gray-600">Expected</p>
-					<p class="text-xl font-bold text-blue-600">${week.expected_in.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">Total Expenses</p>
+					<p class="text-xl font-bold text-blue-600">${week.total_amount.toFixed(2)}</p>
 				</div>
 				<div class="rounded-lg bg-green-50 p-3">
-					<p class="text-sm text-gray-600">Collected</p>
-					<p class="text-xl font-bold text-green-600">${week.actual_collected.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">Paid</p>
+					<p class="text-xl font-bold text-green-600">${week.total_paid.toFixed(2)}</p>
 				</div>
 				<div class="rounded-lg bg-red-50 p-3">
-					<p class="text-sm text-gray-600">Uncollected</p>
-					<p class="text-xl font-bold text-red-600">${week.uncollected.toFixed(2)}</p>
-				</div>
-				<div class="rounded-lg bg-yellow-50 p-3">
-					<p class="text-sm text-gray-600">Carry Forward</p>
-					<p class="text-xl font-bold text-yellow-600">${week.total_carried_out.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">Unpaid</p>
+					<p class="text-xl font-bold text-red-600">${week.total_unpaid.toFixed(2)}</p>
 				</div>
 			</div>
+
+			<!-- Category Breakdown -->
+			{#if categoryTotals().length > 0}
+				<div class="mb-6">
+					<h3 class="text-sm font-medium text-gray-700 mb-2">Expenses by Category</h3>
+					<div class="space-y-1">
+						{#each categoryTotals() as cat}
+							<div class="flex justify-between text-sm">
+								<span class="text-gray-600">{cat.name}</span>
+								<span class="font-medium">${cat.amount.toFixed(2)}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			<!-- Progress -->
 			<div class="mb-4">
 				<div class="flex justify-between text-sm">
 					<span>Review Progress</span>
-					<span>{week.players.length - week.playersPending.length} / {week.players.length} reviewed</span>
+					<span>{week.transactions.length - week.transactionsPending.length} / {week.transactions.length} reviewed</span>
 				</div>
 				<div class="mt-1 h-2 w-full rounded-full bg-gray-200">
 					<div 
 						class="h-2 rounded-full bg-indigo-500 transition-all"
-						style="width: {((week.players.length - week.playersPending.length) / week.players.length) * 100}%"
+						style="width: {week.transactions.length > 0 ? ((week.transactions.length - week.transactionsPending.length) / week.transactions.length) * 100 : 0}%"
 					></div>
 				</div>
 			</div>
@@ -124,101 +142,59 @@
 				</Button>
 			</div>
 
-			<!-- Player List -->
-			{#if sortedPlayers.length === 0}
-				<p class="text-center text-gray-500">No players in this week</p>
+			<!-- Transaction List -->
+			{#if sortedTransactions.length === 0}
+				<p class="text-center text-gray-500">No expenses in this week</p>
 			{:else}
 				<div class="space-y-3">
-					{#each sortedPlayers as player (player.id)}
-						{@const isIn = player.amount > 0}
-						{@const isOut = player.amount < 0}
-						{@const hasAmount = player.amount !== 0}
-						<div class="rounded-lg border p-3 {player.payment_status === 'pending' ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}">
+					{#each sortedTransactions as transaction (transaction.id)}
+						{@const categories = getCategoryNames(transaction.category_ids)}
+						<div class="rounded-lg border p-3 {transaction.payment_status === 'pending' ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}">
 							<div class="flex items-start justify-between">
 								<div>
 									<div class="flex items-center gap-2">
-										<span class="font-medium">{player.name}</span>
-										<span class="text-sm text-gray-500">#{player.account_number}</span>
-										{#if isIn}
-											<span class="rounded bg-green-100 px-1.5 py-0.5 text-xs text-green-700">IN</span>
-										{:else if isOut}
-											<span class="rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">OUT</span>
-										{/if}
-										<span class="rounded px-2 py-0.5 text-xs font-medium {getStatusBadge(player.payment_status)}">
-											{player.payment_status}
+										<span class="font-medium">{transaction.description}</span>
+										<span class="rounded px-2 py-0.5 text-xs font-medium {getStatusBadge(transaction.payment_status)}">
+											{transaction.payment_status}
 										</span>
 									</div>
+									{#if categories.length > 0}
+										<div class="mt-1 flex flex-wrap gap-1">
+											{#each categories as cat}
+												<span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600">
+													{cat}
+												</span>
+											{/each}
+										</div>
+									{/if}
 									<div class="mt-1 text-sm text-gray-600">
-										{#if player.carried}
-											<span class="text-yellow-600">Carry: ${player.carry_amount.toFixed(2)}</span> + 
-										{/if}
-										<span class={player.amount >= 0 ? 'text-green-600' : 'text-red-600'}>
-											Amount: {player.amount >= 0 ? '+' : ''}${player.amount.toFixed(2)}
-										</span>
-										{#if isIn}
-											<span class="mx-2">→</span>
-											<span class="font-medium">To Collect: ${player.totalOwed.toFixed(2)}</span>
-										{:else if isOut}
-											<span class="mx-2">→</span>
-											<span class="font-medium">To Pay Out: ${Math.abs(player.amount).toFixed(2)}</span>
-										{/if}
+										<span class="font-medium text-blue-600">${transaction.amount.toFixed(2)}</span>
 									</div>
-									{#if player.payment_status === 'partial'}
-										<p class="text-sm text-yellow-600">
-											{isIn ? 'Collected' : 'Paid Out'}: ${player.paid_amount.toFixed(2)} | Remaining: ${Math.abs(player.carryForward).toFixed(2)}
-										</p>
+									{#if transaction.note}
+										<p class="text-xs text-gray-500 mt-1">{transaction.note}</p>
 									{/if}
 								</div>
 
-								{#if hasAmount && player.payment_status === 'pending'}
-									<div class="flex flex-col gap-2">
-										<div class="flex gap-1">
-											{#if isIn}
-												<Button size="sm" onclick={() => handleMarkPaid(player.id)} class="bg-green-600 hover:bg-green-700">
-													Collected
-												</Button>
-												<Button size="sm" variant="outline" onclick={() => handleMarkUnpaid(player.id)} class="text-red-600 hover:bg-red-50">
-													Not Collected
-												</Button>
-											{:else}
-												<Button size="sm" onclick={() => handleMarkPaid(player.id)} class="bg-blue-600 hover:bg-blue-700">
-													Paid Out
-												</Button>
-												<Button size="sm" variant="outline" onclick={() => handleMarkUnpaid(player.id)} class="text-orange-600 hover:bg-orange-50">
-													Carry (Not Paid)
-												</Button>
-											{/if}
-										</div>
-										{#if isIn}
-											<div class="flex gap-1">
-												<Input
-													type="number"
-													step="0.01"
-													min="0"
-													max={player.totalOwed}
-													placeholder="Partial $"
-													class="h-8 w-24 text-sm"
-													onchange={(e) => partialAmounts[player.id] = parseFloat((e.target as HTMLInputElement).value) || 0}
-												/>
-												<Button size="sm" variant="outline" onclick={() => handleMarkPartial(player.id)} class="text-yellow-600 hover:bg-yellow-50">
-													Partial
-												</Button>
-											</div>
-										{/if}
+								{#if transaction.payment_status === 'pending'}
+									<div class="flex gap-1">
+										<Button size="sm" onclick={() => handleMarkPaid(transaction.id)} class="bg-green-600 hover:bg-green-700">
+											Paid
+										</Button>
+										<Button size="sm" variant="outline" onclick={() => handleMarkUnpaid(transaction.id)} class="text-red-600 hover:bg-red-50">
+											Unpaid
+										</Button>
 									</div>
-								{:else if hasAmount}
+								{:else}
 									<Button size="sm" variant="ghost" onclick={() => {
-										const p = week.getPlayer(player.id);
-										if (p) {
-											p.resetPaymentStatus();
+										const t = week.getTransaction(transaction.id);
+										if (t) {
+											t.resetPaymentStatus();
 											week.calculateTotals();
 											appStore.save();
 										}
 									}}>
 										Reset
 									</Button>
-								{:else}
-									<span class="text-sm text-gray-400">No amount</span>
 								{/if}
 							</div>
 						</div>
@@ -238,7 +214,7 @@
 				{#if allReviewed}
 					Finalize & Close Week
 				{:else}
-					Review All Players First ({week.playersPending.length} remaining)
+					Review All Expenses First ({week.transactionsPending.length} remaining)
 				{/if}
 			</Button>
 		</Footer>
