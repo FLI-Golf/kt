@@ -69,9 +69,11 @@ export class AppStore {
 
         // Then try to sync from cloud
         if (!DISABLE_CLOUD_SYNC && pbService.isConfigured) {
-        await this.syncFromCloud();
+            await this.syncFromCloud();
+        } else {
+            this._syncState = 'idle';
+            this._syncError = null;
         }
-
     }
 
     // Player Roster Management
@@ -245,7 +247,11 @@ export class AppStore {
     }
 
     private async syncToCloud() {
-        if (!pbService.isConfigured) return;
+        if (!pbService.isConfigured) {
+            this._syncState = 'idle';
+            this._syncError = null;
+            return;
+        }
 
         this._syncState = 'syncing';
         this._syncError = null;
@@ -255,7 +261,7 @@ export class AppStore {
             this._syncState = 'success';
             this._lastSynced = new Date().toISOString();
             setTimeout(() => {
-            if (this._syncState === 'success') this._syncState = 'idle';
+                if (this._syncState === 'success') this._syncState = 'idle';
             }, 2000);
         } catch (e: any) {
             this._syncState = 'error';
@@ -289,53 +295,36 @@ export class AppStore {
 
 
     async syncFromCloud(): Promise<boolean> {
-    // Hard disable via env flag
-    if (DISABLE_CLOUD_SYNC) {
-        this._syncState = 'idle';
-        this._syncError = null;
-        return false;
-    }
-
-    // Cloud not available / not implemented
-    if (!pbService.isConfigured || typeof (pbService as any).read !== 'function') {
-        this._syncState = 'idle';
-        this._syncError = null;
-        return false;
-    }
-
-    this._syncState = 'syncing';
-    this._syncError = null;
-
-    try {
-        const result = await pbService.read<AppData>();
-
-        if (result.success && result.data) {
-        this.applyAppData(result.data);
-        this.saveLocal(); // Update local storage with cloud data
-        this._syncState = 'success';
-        this._lastSynced = new Date().toISOString();
-
-        setTimeout(() => {
-            if (this._syncState === 'success') this._syncState = 'idle';
-        }, 2000);
-
-        return true;
+        if (DISABLE_CLOUD_SYNC || !pbService.isConfigured) {
+            this._syncState = 'idle';
+            this._syncError = null;
+            return false;
         }
 
-        if (result.error === 'No bin ID stored') {
-        // No cloud data yet, that's okay
-        this._syncState = 'idle';
-        return false;
-        }
+        this._syncState = 'syncing';
+        this._syncError = null;
 
-        this._syncState = 'error';
-        this._syncError = result.error || 'Unknown error';
-        return false;
-    } catch (e: any) {
-        this._syncState = 'error';
-        this._syncError = e?.message ?? String(e);
-        return false;
-    }
+        try {
+            const state = await pbService.readAppState<AppData>();
+
+            if (state?.data) {
+                this.applyAppData(state.data);
+                this.saveLocal();
+                this._syncState = 'success';
+                this._lastSynced = new Date().toISOString();
+                setTimeout(() => {
+                    if (this._syncState === 'success') this._syncState = 'idle';
+                }, 2000);
+                return true;
+            }
+
+            this._syncState = 'idle';
+            return false;
+        } catch (e: any) {
+            this._syncState = 'error';
+            this._syncError = e?.message ?? String(e);
+            return false;
+        }
     }
 
     // Debounced save - saves locally immediately, syncs to cloud after delay
