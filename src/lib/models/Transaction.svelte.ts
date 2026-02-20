@@ -1,7 +1,15 @@
 import { generateId } from '$lib/commands.svelte';
 
 export type PaymentStatus = 'pending' | 'paid' | 'unpaid';
-export type TransactionType = 'expense' | 'income';
+export type TransactionType = 'expense' | 'reimbursement' | 'refund';
+
+export interface ImageAttachment {
+    id: string;
+    /** base64 data URL (e.g. "data:image/jpeg;base64,...") */
+    dataUrl: string;
+    name: string;
+    created: string;
+}
 
 export interface TransactionData {
     id: string;
@@ -12,6 +20,7 @@ export interface TransactionData {
     payment_status: PaymentStatus;
     paid_date: string | null;
     note: string;
+    images: ImageAttachment[];
     created: string;
     updated: string;
 }
@@ -26,6 +35,7 @@ export class Transaction {
         payment_status: 'pending',
         paid_date: null,
         note: '',
+        images: [],
         created: new Date().toISOString(),
         updated: new Date().toISOString()
     });
@@ -46,12 +56,17 @@ export class Transaction {
     get payment_status() { return this._state.payment_status; }
     get paid_date() { return this._state.paid_date; }
     get note() { return this._state.note; }
+    get images() { return this._state.images; }
     get created() { return this._state.created; }
     get updated() { return this._state.updated; }
     
-    // Helper to check if this is income
-    get isIncome() { return this._state.type === 'income'; }
+    get isReimbursement() { return this._state.type === 'reimbursement'; }
+    get isRefund() { return this._state.type === 'refund'; }
     get isExpense() { return this._state.type === 'expense'; }
+    /** Returns true if this transaction puts money back (reimbursement or refund) */
+    get isCredit() { return this._state.type === 'reimbursement' || this._state.type === 'refund'; }
+    get hasImages() { return this._state.images.length > 0; }
+    get imageCount() { return this._state.images.length; }
 
     // Setters with auto-update timestamp
     set description(value: string) {
@@ -79,6 +94,11 @@ export class Transaction {
         this.touch();
     }
 
+    set images(value: ImageAttachment[]) {
+        this._state.images = [...value];
+        this.touch();
+    }
+
     // Methods
     private touch() {
         this._state.updated = new Date().toISOString();
@@ -93,6 +113,23 @@ export class Transaction {
 
     removeCategory(categoryId: string) {
         this._state.category_ids = this._state.category_ids.filter(id => id !== categoryId);
+        this.touch();
+    }
+
+    // Image methods
+    addImage(dataUrl: string, name: string = 'receipt') {
+        const image: ImageAttachment = {
+            id: generateId(),
+            dataUrl,
+            name,
+            created: new Date().toISOString()
+        };
+        this._state.images = [...this._state.images, image];
+        this.touch();
+    }
+
+    removeImage(imageId: string) {
+        this._state.images = this._state.images.filter(img => img.id !== imageId);
         this.touch();
     }
 
@@ -122,12 +159,15 @@ export class Transaction {
 
     static fromJSON(data: TransactionData): Transaction {
         const transaction = new Transaction();
+        // Migrate legacy 'income' type to 'reimbursement'
+        const type = (data.type as string) === 'income' ? 'reimbursement' : (data.type || 'expense');
         transaction._state = {
             ...data,
-            type: data.type || 'expense',
+            type: type as TransactionType,
             payment_status: data.payment_status || 'pending',
             paid_date: data.paid_date || null,
-            category_ids: data.category_ids || []
+            category_ids: data.category_ids || [],
+            images: data.images || []
         };
         return transaction;
     }

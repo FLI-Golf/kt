@@ -1,4 +1,4 @@
-import { Week, type WeekData } from './Week.svelte';
+import { Month, type MonthData, type AccountType, DEFAULT_YEAR, SUPPORTED_YEARS } from './Month.svelte';
 import { Category, type CategoryData, DEFAULT_CATEGORIES } from './Category.svelte';
 import { CommonTransaction, type CommonTransactionData } from './CommonTransaction.svelte';
 import { pbService } from '$lib/services';
@@ -8,89 +8,98 @@ const DISABLE_CLOUD_SYNC =
   (import.meta as any).env?.VITE_DISABLE_CLOUD_SYNC === 'true';
 
 interface AppData {
-    weeks: WeekData[];
+    months: MonthData[];
     categories: CategoryData[];
     commonTransactions: CommonTransactionData[];
-    activeWeekId: string | null;
+    activeMonthId: string | null;
     version: number;
+}
+
+// Support loading legacy data that used "weeks"
+interface LegacyAppData {
+    weeks?: any[];
+    activeWeekId?: string | null;
 }
 
 export type SyncState = 'idle' | 'syncing' | 'success' | 'error';
 
+export interface MoveUndoInfo {
+    sourceMonthId: string;
+    targetMonthId: string;
+    newTransactionId: string;
+    originalTransactionData: {
+        description: string;
+        amount: number;
+        type: string;
+        category_ids: string[];
+        note: string;
+        images: any[];
+        payment_status: string;
+    };
+}
+
 export class AppStore {
-    private _weeks = $state<Week[]>([]);
+    private _months = $state<Month[]>([]);
     private _categories = $state<Category[]>([]);
     private _commonTransactions = $state<CommonTransaction[]>([]);
-    private _activeWeekId = $state<string | null>(null);
+    private _activeMonthId = $state<string | null>(null);
     private _initialized = $state(false);
     private _syncState = $state<SyncState>('idle');
     private _syncError = $state<string | null>(null);
     private _lastSynced = $state<string | null>(null);
     private _saveTimeout: ReturnType<typeof setTimeout> | null = null;
+    private _lastMove = $state<MoveUndoInfo | null>(null);
+    private _undoTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    // Getters
-    get weeks() { return this._weeks; }
+    get months() { return this._months; }
     get categories() { return this._categories; }
     get commonTransactions() { return this._commonTransactions; }
-    get activeWeekId() { return this._activeWeekId; }
+    get activeMonthId() { return this._activeMonthId; }
     get initialized() { return this._initialized; }
     get syncState() { return this._syncState; }
     get syncError() { return this._syncError; }
     get lastSynced() { return this._lastSynced; }
-    get isCloudEnabled() { 
-        return !DISABLE_CLOUD_SYNC && pbService.isConfigured; 
+    get lastMove() { return this._lastMove; }
+
+    get isCloudEnabled() {
+        return !DISABLE_CLOUD_SYNC && pbService.isConfigured;
     }
 
-    get activeWeek(): Week | undefined {
-        if (!this._activeWeekId) return undefined;
-        return this._weeks.find(w => w.id === this._activeWeekId);
+    get activeMonth(): Month | undefined {
+        if (!this._activeMonthId) return undefined;
+        return this._months.find(m => m.id === this._activeMonthId);
     }
 
-    get activeWeeks() {
-        return this._weeks.filter(w => w.active);
+    get activeMonths() {
+        return this._months.filter(m => m.active);
     }
 
-    get inactiveWeeks() {
-        return this._weeks.filter(w => !w.active);
+    get inactiveMonths() {
+        return this._months.filter(m => !m.active);
     }
 
-    get weekCount() {
-        return this._weeks.length;
-    }
+    get monthCount() { return this._months.length; }
+    get categoryCount() { return this._categories.length; }
+    get commonTransactionCount() { return this._commonTransactions.length; }
 
-    get categoryCount() {
-        return this._categories.length;
-    }
-
-    get commonTransactionCount() {
-        return this._commonTransactions.length;
-    }
-
-    // Get parent categories (no parent_id)
     get parentCategories() {
         return this._categories.filter(c => c.parent_id === null);
     }
 
-    // Get child categories for a parent
     getChildCategories(parentId: string) {
         return this._categories.filter(c => c.parent_id === parentId);
     }
 
-    // Get category by ID
     getCategory(id: string): Category | undefined {
         return this._categories.find(c => c.id === id);
     }
 
-    // Get category name with parent prefix
     getCategoryFullName(id: string): string {
         const category = this.getCategory(id);
         if (!category) return '';
-        
         if (category.parent_id) {
             const parent = this.getCategory(category.parent_id);
-            if (parent) {
-                return `${parent.name} > ${category.name}`;
-            }
+            if (parent) return `${parent.name} > ${category.name}`;
         }
         return category.name;
     }
@@ -98,18 +107,12 @@ export class AppStore {
     // Initialization
     async init() {
         if (this._initialized) return;
-        
-        // First load from localStorage for immediate display
         this.loadLocal();
-        
-        // Initialize default categories if none exist
         if (this._categories.length === 0) {
             this.initializeDefaultCategories();
         }
-        
         this._initialized = true;
 
-        // Then try to sync from cloud
         if (!DISABLE_CLOUD_SYNC && pbService.isConfigured) {
             await this.syncFromCloud();
         } else {
@@ -118,12 +121,10 @@ export class AppStore {
         }
     }
 
-    // Initialize default expense categories
     private initializeDefaultCategories() {
         for (const cat of DEFAULT_CATEGORIES) {
             const parent = new Category(cat.name, null);
             this._categories.push(parent);
-            
             if (cat.children) {
                 for (const childName of cat.children) {
                     const child = new Category(childName, parent.id);
@@ -143,15 +144,11 @@ export class AppStore {
     }
 
     removeCategory(id: string): boolean {
-        // Also remove child categories
         const children = this.getChildCategories(id);
         for (const child of children) {
             const childIndex = this._categories.findIndex(c => c.id === child.id);
-            if (childIndex !== -1) {
-                this._categories.splice(childIndex, 1);
-            }
+            if (childIndex !== -1) this._categories.splice(childIndex, 1);
         }
-        
         const index = this._categories.findIndex(c => c.id === id);
         if (index !== -1) {
             this._categories.splice(index, 1);
@@ -195,73 +192,163 @@ export class AppStore {
         return false;
     }
 
-    // Week Management
-    createWeek(name: string): Week {
-        const week = new Week(name);
-        this._weeks.push(week);
+    // Month Management
+    createMonth(year: number = DEFAULT_YEAR, monthIndex: number = new Date().getMonth(), accountType: AccountType = 'personal'): Month {
+        const month = new Month(year, monthIndex, accountType);
+        month.activate();
+        this._months.push(month);
         this.save();
-        return week;
+        return month;
     }
 
-    deleteWeek(id: string): boolean {
-        const index = this._weeks.findIndex(w => w.id === id);
+    deleteMonth(id: string): boolean {
+        const index = this._months.findIndex(m => m.id === id);
         if (index !== -1) {
-            this._weeks.splice(index, 1);
-            if (this._activeWeekId === id) {
-                this._activeWeekId = null;
-            }
+            this._months.splice(index, 1);
+            if (this._activeMonthId === id) this._activeMonthId = null;
             this.save();
             return true;
         }
         return false;
     }
 
-    getWeek(id: string): Week | undefined {
-        return this._weeks.find(w => w.id === id);
+    getMonth(id: string): Month | undefined {
+        return this._months.find(m => m.id === id);
     }
 
-    setActiveWeek(id: string | null) {
-        this._activeWeekId = id;
+    setActiveMonth(id: string | null) {
+        this._activeMonthId = id;
         this.save();
     }
 
-    // Create next week from a closed week
-    createNextWeekFromClosed(closedWeekId: string): Week | undefined {
-        const closedWeek = this.getWeek(closedWeekId);
-        if (!closedWeek || !closedWeek.isClosed) return undefined;
-
-        // Generate next week name
-        const weekNum = this._weeks.length + 1;
-        const newWeek = this.createWeek(`Week ${weekNum}`);
-
-        // Set date range - start day after closed week's end
-        const closedEndDate = new Date(closedWeek.end);
-        const startDate = new Date(closedEndDate);
-        startDate.setDate(startDate.getDate() + 1);
-        startDate.setHours(12, 0, 0, 0);
-        
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 6);
-        endDate.setHours(12, 0, 0, 0);
-        
-        newWeek.start = startDate.toISOString();
-        newWeek.end = endDate.toISOString();
-
-        // Link weeks
-        newWeek.previous_week_id = closedWeek.id;
-        closedWeek.next_week_id = newWeek.id;
-
-        newWeek.calculateTotals();
-        newWeek.activate();
-        this.save();
-
-        return newWeek;
+    monthExists(year: number, monthIndex: number, accountType: AccountType = 'personal'): boolean {
+        return this._months.some(m => m.year === year && m.monthIndex === monthIndex && m.accountType === accountType);
     }
 
-    // Get expense summary across all weeks
-    getExpenseSummary(): { 
-        totalExpenses: number; 
-        totalPaid: number; 
+    /**
+     * Move a transaction from sourceMonth to the matching month of targetAccountType.
+     * Creates the target month if it doesn't exist.
+     * Returns the target month name, or null on failure.
+     */
+    moveTransaction(sourceMonthId: string, transactionId: string, targetAccountType: AccountType): string | null {
+        const sourceMonth = this.getMonth(sourceMonthId);
+        if (!sourceMonth) return null;
+
+        const transaction = sourceMonth.getTransaction(transactionId);
+        if (!transaction) return null;
+
+        // Find or create the target month (same year/monthIndex, different account type)
+        let targetMonth = this._months.find(
+            m => m.year === sourceMonth.year && m.monthIndex === sourceMonth.monthIndex && m.accountType === targetAccountType
+        );
+
+        if (!targetMonth) {
+            targetMonth = this.createMonth(sourceMonth.year, sourceMonth.monthIndex, targetAccountType);
+        }
+
+        // Capture original data before move for undo
+        const originalData = {
+            description: transaction.description,
+            amount: transaction.amount,
+            type: transaction.type,
+            category_ids: [...transaction.category_ids],
+            note: transaction.note,
+            images: [...transaction.images],
+            payment_status: transaction.payment_status,
+        };
+
+        // Add to target
+        const newTransaction = targetMonth.addTransaction(transaction.description);
+        newTransaction.amount = transaction.amount;
+        newTransaction.type = targetAccountType === 'company' ? 'expense' : transaction.type;
+        newTransaction.category_ids = [...transaction.category_ids];
+        newTransaction.note = transaction.note;
+        newTransaction.images = [...transaction.images];
+        if (transaction.payment_status === 'paid') newTransaction.markPaid();
+        else if (transaction.payment_status === 'unpaid') newTransaction.markUnpaid();
+
+        // Remove from source
+        sourceMonth.removeTransaction(transactionId);
+        sourceMonth.calculateTotals();
+        targetMonth.calculateTotals();
+
+        // Store undo info (auto-expires after 10 seconds)
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = {
+            sourceMonthId,
+            targetMonthId: targetMonth.id,
+            newTransactionId: newTransaction.id,
+            originalTransactionData: originalData,
+        };
+        this._undoTimeout = setTimeout(() => {
+            this._lastMove = null;
+        }, 10_000);
+
+        this.save();
+        return targetMonth.name;
+    }
+
+    undoMoveTransaction(): string | null {
+        const undo = this._lastMove;
+        if (!undo) return null;
+
+        // Clear undo state immediately
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = null;
+
+        const targetMonth = this.getMonth(undo.targetMonthId);
+        const sourceMonth = this.getMonth(undo.sourceMonthId);
+        if (!targetMonth || !sourceMonth) return null;
+
+        // Remove the moved transaction from target
+        targetMonth.removeTransaction(undo.newTransactionId);
+
+        // Re-create in original source with original data
+        const restored = sourceMonth.addTransaction(undo.originalTransactionData.description);
+        restored.amount = undo.originalTransactionData.amount;
+        restored.type = undo.originalTransactionData.type as any;
+        restored.category_ids = [...undo.originalTransactionData.category_ids];
+        restored.note = undo.originalTransactionData.note;
+        restored.images = [...undo.originalTransactionData.images];
+        if (undo.originalTransactionData.payment_status === 'paid') restored.markPaid();
+        else if (undo.originalTransactionData.payment_status === 'unpaid') restored.markUnpaid();
+
+        sourceMonth.calculateTotals();
+        targetMonth.calculateTotals();
+        this.save();
+
+        return sourceMonth.name;
+    }
+
+    clearMoveUndo() {
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = null;
+    }
+
+    createNextMonthFromClosed(closedMonthId: string): Month | undefined {
+        const closedMonth = this.getMonth(closedMonthId);
+        if (!closedMonth || !closedMonth.isClosed) return undefined;
+
+        let nextYear = closedMonth.year;
+        let nextMonthIndex = closedMonth.monthIndex + 1;
+        if (nextMonthIndex > 11) {
+            nextMonthIndex = 0;
+            nextYear++;
+        }
+        if (!SUPPORTED_YEARS.includes(nextYear as any)) return undefined;
+        if (this.monthExists(nextYear, nextMonthIndex, closedMonth.accountType)) return undefined;
+
+        const newMonth = this.createMonth(nextYear, nextMonthIndex, closedMonth.accountType);
+        newMonth.previous_month_id = closedMonth.id;
+        closedMonth.next_month_id = newMonth.id;
+        newMonth.calculateTotals();
+        this.save();
+        return newMonth;
+    }
+
+    getExpenseSummary(): {
+        totalExpenses: number;
+        totalPaid: number;
         totalUnpaid: number;
         byCategory: Map<string, number>;
     } {
@@ -269,43 +356,36 @@ export class AppStore {
         let totalPaid = 0;
         const byCategory = new Map<string, number>();
 
-        for (const week of this._weeks) {
-            totalExpenses += week.total_amount;
-            totalPaid += week.total_paid;
-            
-            const weekCategories = week.getTotalsByCategory();
-            for (const [catId, amount] of weekCategories) {
+        for (const month of this._months) {
+            totalExpenses += month.total_amount;
+            totalPaid += month.total_paid;
+            const monthCategories = month.getTotalsByCategory();
+            for (const [catId, amount] of monthCategories) {
                 const current = byCategory.get(catId) || 0;
                 byCategory.set(catId, current + amount);
             }
         }
 
-        return {
-            totalExpenses,
-            totalPaid,
-            totalUnpaid: totalExpenses - totalPaid,
-            byCategory
-        };
+        return { totalExpenses, totalPaid, totalUnpaid: totalExpenses - totalPaid, byCategory };
     }
 
-    // Persistence - Local Storage
+    // Persistence
     private getAppData(): AppData {
         return {
-            weeks: this._weeks.map(w => w.toJSON()),
+            months: this._months.map(m => m.toJSON()),
             categories: this._categories.map(c => c.toJSON()),
             commonTransactions: this._commonTransactions.map(ct => ct.toJSON()),
-            activeWeekId: this._activeWeekId,
-            version: 2
+            activeMonthId: this._activeMonthId,
+            version: 3
         };
     }
 
-    private applyAppData(data: AppData) {
-        this._weeks = data.weeks.map(w => Week.fromJSON(w));
+    private applyAppData(data: AppData & Partial<LegacyAppData>) {
+        const monthsRaw = data.months ?? data.weeks ?? [];
+        this._months = monthsRaw.map((m: any) => Month.fromJSON(m));
         this._categories = (data.categories || []).map(c => Category.fromJSON(c));
         this._commonTransactions = (data.commonTransactions || []).map(ct => CommonTransaction.fromJSON(ct));
-        this._activeWeekId = data.activeWeekId;
-        
-        // Initialize default categories if none exist after loading
+        this._activeMonthId = data.activeMonthId ?? data.activeWeekId ?? null;
         if (this._categories.length === 0) {
             this.initializeDefaultCategories();
         }
@@ -317,17 +397,13 @@ export class AppStore {
             this._syncError = null;
             return;
         }
-
         this._syncState = 'syncing';
         this._syncError = null;
-
         try {
-            await pbService.writeAppState(this.getAppData(), 2);
+            await pbService.writeAppState(this.getAppData(), 3);
             this._syncState = 'success';
             this._lastSynced = new Date().toISOString();
-            setTimeout(() => {
-                if (this._syncState === 'success') this._syncState = 'idle';
-            }, 2000);
+            setTimeout(() => { if (this._syncState === 'success') this._syncState = 'idle'; }, 2000);
         } catch (e: any) {
             this._syncState = 'error';
             this._syncError = e?.message ?? String(e);
@@ -336,7 +412,6 @@ export class AppStore {
 
     private saveLocal() {
         if (typeof localStorage === 'undefined') return;
-
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(this.getAppData()));
         } catch (e) {
@@ -346,12 +421,10 @@ export class AppStore {
 
     private loadLocal() {
         if (typeof localStorage === 'undefined') return;
-
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) return;
-
-            const data: AppData = JSON.parse(raw);
+            const data = JSON.parse(raw);
             this.applyAppData(data);
         } catch (e) {
             console.error('Failed to load app data locally:', e);
@@ -364,24 +437,18 @@ export class AppStore {
             this._syncError = null;
             return false;
         }
-
         this._syncState = 'syncing';
         this._syncError = null;
-
         try {
-            const state = await pbService.readAppState<AppData>();
-
+            const state = await pbService.readAppState<AppData & Partial<LegacyAppData>>();
             if (state?.data) {
                 this.applyAppData(state.data);
                 this.saveLocal();
                 this._syncState = 'success';
                 this._lastSynced = new Date().toISOString();
-                setTimeout(() => {
-                    if (this._syncState === 'success') this._syncState = 'idle';
-                }, 2000);
+                setTimeout(() => { if (this._syncState === 'success') this._syncState = 'idle'; }, 2000);
                 return true;
             }
-
             this._syncState = 'idle';
             return false;
         } catch (e: any) {
@@ -391,57 +458,36 @@ export class AppStore {
         }
     }
 
-    // Debounced save - saves locally immediately, syncs to cloud after delay
     save() {
         this.saveLocal();
-
-        // Debounce cloud sync to avoid too many API calls
-        if (this._saveTimeout) {
-            clearTimeout(this._saveTimeout);
-        }
-
+        if (this._saveTimeout) clearTimeout(this._saveTimeout);
         if (pbService.isConfigured) {
-            this._saveTimeout = setTimeout(() => {
-                this.syncToCloud();
-            }, 1000);
+            this._saveTimeout = setTimeout(() => { this.syncToCloud(); }, 1000);
         }
     }
 
-    // Force immediate sync to cloud
     async forceSyncToCloud() {
-        if (this._saveTimeout) {
-            clearTimeout(this._saveTimeout);
-            this._saveTimeout = null;
-        }
+        if (this._saveTimeout) { clearTimeout(this._saveTimeout); this._saveTimeout = null; }
         await this.syncToCloud();
     }
 
     clear() {
-        this._weeks = [];
+        this._months = [];
         this._categories = [];
         this._commonTransactions = [];
-        this._activeWeekId = null;
-        if (typeof localStorage !== 'undefined') {
-            localStorage.removeItem(STORAGE_KEY);
-        }
-        // Also clear cloud data
-        if (pbService.isConfigured) {
-            this.syncToCloud();
-        }
+        this._activeMonthId = null;
+        if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
+        if (pbService.isConfigured) this.syncToCloud();
     }
 
-    // Export/Import for backup
     export(): string {
         return JSON.stringify(this.getAppData(), null, 2);
     }
 
     import(jsonString: string): boolean {
         try {
-            const data: AppData = JSON.parse(jsonString);
-            this._weeks = data.weeks.map(w => Week.fromJSON(w));
-            this._categories = (data.categories || []).map(c => Category.fromJSON(c));
-            this._commonTransactions = (data.commonTransactions || []).map(ct => CommonTransaction.fromJSON(ct));
-            this._activeWeekId = data.activeWeekId;
+            const data = JSON.parse(jsonString);
+            this.applyAppData(data);
             this.save();
             return true;
         } catch (e) {
@@ -451,5 +497,4 @@ export class AppStore {
     }
 }
 
-// Singleton instance
 export const appStore = new AppStore();
