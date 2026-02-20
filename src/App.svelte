@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { appStore, type Month, DEFAULT_YEAR } from '$lib/models';
-	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus } from '$lib/components';
+	import { appStore, type Month, type AccountType, DEFAULT_YEAR } from '$lib/models';
+	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus, CsvImporter } from '$lib/components';
+	import CompanyCsvImporter from '$lib/components/CompanyCsvImporter.svelte';
 
 	// Initialize store on mount
 	$effect(() => {
@@ -8,7 +9,7 @@
 	});
 
 	// View state
-	type View = 'list' | 'create' | 'edit' | 'detail';
+	type View = 'list' | 'create' | 'edit' | 'detail' | 'import' | 'import-company';
 	let currentView = $state<View>('list');
 	let selectedMonth = $state<Month | undefined>(undefined);
 	
@@ -31,12 +32,12 @@
 		currentView = 'create';
 	};
 
-	const handleSaveNewMonth = (data: { year: number; monthIndex: number }) => {
-		if (appStore.monthExists(data.year, data.monthIndex)) {
-			alert('A month already exists for that period.');
+	const handleSaveNewMonth = (data: { year: number; monthIndex: number; accountType: AccountType }) => {
+		if (appStore.monthExists(data.year, data.monthIndex, data.accountType)) {
+			alert(`A ${data.accountType} month already exists for that period.`);
 			return;
 		}
-		const month = appStore.createMonth(data.year, data.monthIndex);
+		const month = appStore.createMonth(data.year, data.monthIndex, data.accountType);
 		selectedMonth = month;
 		currentView = 'detail';
 	};
@@ -45,10 +46,10 @@
 		currentView = 'edit';
 	};
 
-	const handleUpdateMonth = (data: { year: number; monthIndex: number }) => {
+	const handleUpdateMonth = (data: { year: number; monthIndex: number; accountType: AccountType }) => {
 		if (selectedMonth) {
-			// For edit, we just update the name since year/month define the period
-			selectedMonth.name = `${['January','February','March','April','May','June','July','August','September','October','November','December'][data.monthIndex]} ${data.year}`;
+			const label = data.accountType === 'company' ? 'Company' : 'Personal';
+			selectedMonth.name = `${['January','February','March','April','May','June','July','August','September','October','November','December'][data.monthIndex]} ${data.year} - ${label}`;
 			appStore.save();
 		}
 		currentView = 'detail';
@@ -88,7 +89,21 @@
 				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
 				<p class="text-gray-600">Monthly Expense & Reimbursement Management</p>
 			</div>
-			<SyncStatus />
+			<div class="flex items-center gap-2">
+				<button
+					onclick={() => currentView = 'import'}
+					class="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+				>
+					Import Personal
+				</button>
+				<button
+					onclick={() => currentView = 'import-company'}
+					class="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100"
+				>
+					Import Company
+				</button>
+				<SyncStatus />
+			</div>
 		</header>
 
 		{#if !appStore.initialized}
@@ -152,6 +167,10 @@
 				onEdit={handleEditMonth}
 				onCreateNextMonth={handleCreateNextMonth}
 			/>
+		{:else if currentView === 'import'}
+			<CsvImporter onClose={() => currentView = 'list'} />
+		{:else if currentView === 'import-company'}
+			<CompanyCsvImporter onClose={() => currentView = 'list'} />
 		{/if}
 	</div>
 </main>

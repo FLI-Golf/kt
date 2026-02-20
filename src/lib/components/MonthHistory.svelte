@@ -60,7 +60,12 @@
 					<tbody>
 						{#each paginatedMonths as month (month.id)}
 							<tr class="border-b last:border-0 hover:bg-gray-50">
-								<td class="py-3 font-medium">{month.name}</td>
+								<td class="py-3">
+									<span class="font-medium">{month.name}</span>
+									<span class="ml-1 rounded px-1.5 py-0.5 text-xs font-medium {month.isCompany ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+										{month.isCompany ? 'Co' : 'Per'}
+									</span>
+								</td>
 								<td class="py-3 text-sm text-gray-600">
 									{formatDate(month.start)} - {formatDate(month.end)}
 								</td>

@@ -8,6 +8,7 @@
 	import CommonTransactionList from './CommonTransactionList.svelte';
 	import TransactionDropZone from './TransactionDropZone.svelte';
 	import MonthClose from './MonthClose.svelte';
+	import CsvImporter from './CsvImporter.svelte';
 
 	interface Props {
 		month: Month;
@@ -19,6 +20,7 @@
 	let { month, onBack, onEdit, onCreateNextMonth }: Props = $props();
 
 	let showAddTransaction = $state(false);
+	let showCsvImport = $state(false);
 	let editingTransactionId = $state<string | null>(null);
 
 	const handleSelectCommonTransaction = (ct: CommonTransaction) => {
@@ -37,18 +39,19 @@
 		return new Date(iso).toLocaleDateString();
 	};
 
-	const handleAddTransaction = (data: { description: string; amount: number; type: 'expense' | 'reimbursement'; category_ids: string[]; note: string }) => {
+	const handleAddTransaction = (data: { description: string; amount: number; type: 'expense' | 'reimbursement'; category_ids: string[]; note: string; images: import('$lib/models').ImageAttachment[] }) => {
 		const transaction = month.addTransaction(data.description);
 		transaction.amount = data.amount;
 		transaction.type = data.type;
 		transaction.category_ids = data.category_ids;
 		transaction.note = data.note;
+		transaction.images = data.images;
 		month.calculateTotals();
 		appStore.save();
 		showAddTransaction = false;
 	};
 
-	const handleEditTransaction = (data: { description: string; amount: number; type: 'expense' | 'reimbursement'; category_ids: string[]; note: string }) => {
+	const handleEditTransaction = (data: { description: string; amount: number; type: 'expense' | 'reimbursement'; category_ids: string[]; note: string; images: import('$lib/models').ImageAttachment[] }) => {
 		if (!editingTransactionId) return;
 		const transaction = month.getTransaction(editingTransactionId);
 		if (transaction) {
@@ -57,6 +60,7 @@
 			transaction.type = data.type;
 			transaction.category_ids = data.category_ids;
 			transaction.note = data.note;
+			transaction.images = data.images;
 			month.calculateTotals();
 			appStore.save();
 		}
@@ -106,6 +110,31 @@
 		month.calculateTotals();
 		appStore.save();
 	};
+
+	let undoMessage = $state<string | null>(null);
+	let undoTimer: ReturnType<typeof setTimeout> | null = null;
+
+	const handleMoveTransaction = (transactionId: string) => {
+		const targetType = month.isPersonal ? 'company' : 'personal';
+		const targetName = appStore.moveTransaction(month.id, transactionId, targetType);
+		if (targetName) {
+			month.calculateTotals();
+			undoMessage = `Moved to ${targetName}`;
+			if (undoTimer) clearTimeout(undoTimer);
+			undoTimer = setTimeout(() => { undoMessage = null; }, 10_000);
+		}
+	};
+
+	const handleUndo = () => {
+		const restoredName = appStore.undoMoveTransaction();
+		if (restoredName) {
+			month.calculateTotals();
+		}
+		undoMessage = null;
+		if (undoTimer) clearTimeout(undoTimer);
+	};
+
+	const moveLabel = $derived(month.isPersonal ? 'To Company' : 'To Personal');
 
 	const editingTransaction = $derived(editingTransactionId ? month.getTransaction(editingTransactionId) : undefined);
 
@@ -170,8 +199,8 @@
 			<Content class="p-4">
 				<div class="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
 					<div class="rounded-lg bg-green-50 p-3">
-						<p class="text-sm text-gray-600">Reimbursements</p>
-						<p class="text-xl font-bold text-green-600">+${month.total_reimbursement.toFixed(2)}</p>
+						<p class="text-sm text-gray-600">{month.isCompany ? 'Reimbursements' : 'Refunds'}</p>
+						<p class="text-xl font-bold text-green-600">+${(month.isCompany ? month.total_reimbursement : month.total_refund).toFixed(2)}</p>
 					</div>
 					<div class="rounded-lg bg-red-50 p-3">
 						<p class="text-sm text-gray-600">Expenses</p>
@@ -197,13 +226,17 @@
 					<CommonTransactionList onSelect={handleSelectCommonTransaction} />
 				</div>
 				<div class="lg:col-span-3">
-					{#if showAddTransaction}
+					{#if showCsvImport}
+					<CsvImporter onClose={() => showCsvImport = false} />
+				{:else if showAddTransaction}
 						<TransactionForm
+							accountType={month.accountType}
 							onSave={handleAddTransaction}
 							onCancel={() => (showAddTransaction = false)}
 						/>
 					{:else if editingTransaction}
 						<TransactionForm
+							accountType={month.accountType}
 							transaction={editingTransaction}
 							onSave={handleEditTransaction}
 							onCancel={() => (editingTransactionId = null)}
@@ -215,6 +248,8 @@
 								onAddTransaction={() => (showAddTransaction = true)}
 								onEditTransaction={(id) => (editingTransactionId = id)}
 								onDeleteTransaction={handleDeleteTransaction}
+								onMoveTransaction={handleMoveTransaction}
+								{moveLabel}
 							/>
 						</TransactionDropZone>
 					{/if}
@@ -226,7 +261,27 @@
 				onAddTransaction={() => {}}
 				onEditTransaction={() => {}}
 				onDeleteTransaction={() => {}}
+				onMoveTransaction={handleMoveTransaction}
+				{moveLabel}
 			/>
 		{/if}
+	</div>
+{/if}
+
+{#if undoMessage}
+	<div class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-lg bg-gray-900 px-4 py-3 text-sm text-white shadow-lg">
+		<span>{undoMessage}</span>
+		<button
+			class="rounded bg-white px-3 py-1 text-sm font-medium text-gray-900 hover:bg-gray-100"
+			onclick={handleUndo}
+		>
+			Undo
+		</button>
+		<button
+			class="ml-1 text-gray-400 hover:text-white"
+			onclick={() => { undoMessage = null; appStore.clearMoveUndo(); }}
+		>
+			✕
+		</button>
 	</div>
 {/if}

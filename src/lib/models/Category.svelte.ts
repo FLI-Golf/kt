@@ -51,35 +51,60 @@ export class Category {
 
 // Default expense categories with hierarchy
 export const DEFAULT_CATEGORIES: { name: string; children?: string[] }[] = [
+    // Personal categories
     {
         name: 'Housing',
-        children: ['Rent/Mortgage', 'Utilities', 'Insurance', 'Maintenance']
+        children: ['Mortgage', 'Utilities', 'Home Insurance', 'Maintenance', 'HOA']
     },
     {
         name: 'Transportation',
-        children: ['Gas', 'Car Payment', 'Insurance', 'Maintenance', 'Parking']
+        children: ['Gas', 'Car Payment', 'Car Insurance', 'Car Maintenance', 'Parking', 'Car Wash']
     },
     {
-        name: 'Food',
-        children: ['Groceries', 'Dining Out', 'Coffee/Drinks']
+        name: 'Food & Dining',
+        children: ['Groceries', 'Restaurants', 'Fast Food', 'Coffee/Drinks']
     },
     {
-        name: 'Health',
-        children: ['Insurance', 'Medical', 'Pharmacy', 'Gym']
+        name: 'Bills & Payments',
+        children: ['Credit Card Payment', 'Phone/Internet', 'Subscriptions', 'Apple/iCloud']
+    },
+    {
+        name: 'Transfers',
+        children: ['Venmo', 'Apple Cash', 'Bank Transfer', 'Check']
     },
     {
         name: 'Entertainment',
-        children: ['Streaming', 'Movies/Events', 'Hobbies']
+        children: ['Golf', 'Bowling', 'Movies/Events', 'Streaming', 'Hobbies']
     },
     {
         name: 'Shopping',
-        children: ['Clothing', 'Electronics', 'Household']
+        children: ['Clothing', 'Electronics', 'Household', 'Amazon']
     },
-    { name: 'Subscriptions' },
+    {
+        name: 'Health',
+        children: ['Health Insurance', 'Medical', 'Pharmacy', 'Gym']
+    },
+    {
+        name: 'Travel',
+        children: ['Hotel', 'Flights', 'Rental Car', 'Travel Meals']
+    },
     { name: 'Personal Care' },
-    { name: 'Education' },
     { name: 'Gifts' },
-    { name: 'Travel' },
-    { name: 'Savings' },
+    { name: 'Education' },
+    // Company categories
+    {
+        name: 'Meals & Entertainment',
+        children: ['Client Meals', 'Team Meals', 'Events']
+    },
+    {
+        name: 'Business Travel',
+        children: ['Mileage', 'Hotel (Business)', 'Flights (Business)', 'Rental Car (Business)', 'Parking (Business)']
+    },
+    {
+        name: 'Office',
+        children: ['Supplies', 'Software', 'Equipment']
+    },
+    { name: 'Professional Services' },
+    { name: 'Marketing' },
     { name: 'Other' }
 ];

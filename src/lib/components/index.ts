@@ -9,3 +9,6 @@ export { default as CategorySelector } from './CategorySelector.svelte';
 export { default as CategoryList } from './CategoryList.svelte';
 export { default as CommonTransactionList } from './CommonTransactionList.svelte';
 export { default as SyncStatus } from './SyncStatus.svelte';
+export { default as CsvImporter } from './CsvImporter.svelte';
+export { default as CompanyCsvImporter } from './CompanyCsvImporter.svelte';
+export { default as ExpenseReport } from './ExpenseReport.svelte';

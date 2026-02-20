@@ -2,6 +2,7 @@ import { generateId } from '$lib/commands.svelte';
 import { Transaction, type TransactionData } from './Transaction.svelte';
 
 export type MonthStatus = 'active' | 'pending_close' | 'closed';
+export type AccountType = 'personal' | 'company';
 
 export const SUPPORTED_YEARS = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030] as const;
 export const DEFAULT_YEAR = 2026;
@@ -16,11 +17,13 @@ export interface MonthData {
 	name: string;
 	year: number;
 	monthIndex: number; // 0-11
+	accountType: AccountType;
 	transactions: TransactionData[];
 	start: string;
 	end: string;
 	total_amount: number;
 	total_reimbursement: number;
+	total_refund: number;
 	total_expenses: number;
 	total_paid: number;
 	total_unpaid: number;
@@ -33,9 +36,10 @@ export interface MonthData {
 	updated: string;
 }
 
-/** Build a display name like "January 2026" */
-function buildMonthName(year: number, monthIndex: number): string {
-	return `${MONTH_NAMES[monthIndex]} ${year}`;
+/** Build a display name like "January 2026 - Personal" */
+function buildMonthName(year: number, monthIndex: number, accountType: AccountType): string {
+	const label = accountType === 'company' ? 'Company' : 'Personal';
+	return `${MONTH_NAMES[monthIndex]} ${year} - ${label}`;
 }
 
 /** First day of the month as ISO string */
@@ -55,10 +59,12 @@ export class Month {
 		name: '',
 		year: DEFAULT_YEAR,
 		monthIndex: new Date().getMonth(),
+		accountType: 'personal',
 		start: monthStart(DEFAULT_YEAR, new Date().getMonth()),
 		end: monthEnd(DEFAULT_YEAR, new Date().getMonth()),
 		total_amount: 0,
 		total_reimbursement: 0,
+		total_refund: 0,
 		total_expenses: 0,
 		total_paid: 0,
 		total_unpaid: 0,
@@ -73,11 +79,12 @@ export class Month {
 
 	private _transactions = $state<Transaction[]>([]);
 
-	constructor(year: number = DEFAULT_YEAR, monthIndex: number = new Date().getMonth()) {
+	constructor(year: number = DEFAULT_YEAR, monthIndex: number = new Date().getMonth(), accountType: AccountType = 'personal') {
 		this._state.id = generateId();
 		this._state.year = year;
 		this._state.monthIndex = monthIndex;
-		this._state.name = buildMonthName(year, monthIndex);
+		this._state.accountType = accountType;
+		this._state.name = buildMonthName(year, monthIndex, accountType);
 		this._state.start = monthStart(year, monthIndex);
 		this._state.end = monthEnd(year, monthIndex);
 		this._state.created = new Date().toISOString();
@@ -89,10 +96,14 @@ export class Month {
 	get name() { return this._state.name; }
 	get year() { return this._state.year; }
 	get monthIndex() { return this._state.monthIndex; }
+	get accountType() { return this._state.accountType; }
+	get isPersonal() { return this._state.accountType === 'personal'; }
+	get isCompany() { return this._state.accountType === 'company'; }
 	get start() { return this._state.start; }
 	get end() { return this._state.end; }
 	get total_amount() { return this._state.total_amount; }
 	get total_reimbursement() { return this._state.total_reimbursement; }
+	get total_refund() { return this._state.total_refund; }
 	get total_expenses() { return this._state.total_expenses; }
 	get total_paid() { return this._state.total_paid; }
 	get total_unpaid() { return this._state.total_unpaid; }
@@ -168,14 +179,18 @@ export class Month {
 			.filter(t => t.type === 'reimbursement')
 			.reduce((sum, t) => sum + t.amount, 0);
 
+		this._state.total_refund = this._transactions
+			.filter(t => t.type === 'refund')
+			.reduce((sum, t) => sum + t.amount, 0);
+
 		this._state.total_expenses = this._transactions
 			.filter(t => t.type === 'expense')
 			.reduce((sum, t) => sum + t.amount, 0);
 
 		this._state.total_amount = this._transactions.reduce((sum, t) => sum + t.amount, 0);
 
-		// Net balance = reimbursements - expenses
-		this._state.net_balance = this._state.total_reimbursement - this._state.total_expenses;
+		// Net balance = (reimbursements + refunds) - expenses
+		this._state.net_balance = (this._state.total_reimbursement + this._state.total_refund) - this._state.total_expenses;
 
 		// Paid/unpaid only applies to expenses
 		this._state.total_paid = this._transactions
@@ -277,10 +292,12 @@ export class Month {
 			name: data.name,
 			year: data.year ?? DEFAULT_YEAR,
 			monthIndex: data.monthIndex ?? 0,
+			accountType: data.accountType ?? 'personal',
 			start: data.start,
 			end: data.end,
 			total_amount: data.total_amount || 0,
 			total_reimbursement: data.total_reimbursement || 0,
+			total_refund: data.total_refund || 0,
 			total_expenses: data.total_expenses || 0,
 			total_paid: data.total_paid || 0,
 			total_unpaid: data.total_unpaid || 0,

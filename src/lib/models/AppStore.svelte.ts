@@ -1,4 +1,4 @@
-import { Month, type MonthData, DEFAULT_YEAR, SUPPORTED_YEARS } from './Month.svelte';
+import { Month, type MonthData, type AccountType, DEFAULT_YEAR, SUPPORTED_YEARS } from './Month.svelte';
 import { Category, type CategoryData, DEFAULT_CATEGORIES } from './Category.svelte';
 import { CommonTransaction, type CommonTransactionData } from './CommonTransaction.svelte';
 import { pbService } from '$lib/services';
@@ -23,6 +23,21 @@ interface LegacyAppData {
 
 export type SyncState = 'idle' | 'syncing' | 'success' | 'error';
 
+export interface MoveUndoInfo {
+    sourceMonthId: string;
+    targetMonthId: string;
+    newTransactionId: string;
+    originalTransactionData: {
+        description: string;
+        amount: number;
+        type: string;
+        category_ids: string[];
+        note: string;
+        images: any[];
+        payment_status: string;
+    };
+}
+
 export class AppStore {
     private _months = $state<Month[]>([]);
     private _categories = $state<Category[]>([]);
@@ -33,6 +48,8 @@ export class AppStore {
     private _syncError = $state<string | null>(null);
     private _lastSynced = $state<string | null>(null);
     private _saveTimeout: ReturnType<typeof setTimeout> | null = null;
+    private _lastMove = $state<MoveUndoInfo | null>(null);
+    private _undoTimeout: ReturnType<typeof setTimeout> | null = null;
 
     get months() { return this._months; }
     get categories() { return this._categories; }
@@ -42,6 +59,8 @@ export class AppStore {
     get syncState() { return this._syncState; }
     get syncError() { return this._syncError; }
     get lastSynced() { return this._lastSynced; }
+    get lastMove() { return this._lastMove; }
+
     get isCloudEnabled() {
         return !DISABLE_CLOUD_SYNC && pbService.isConfigured;
     }
@@ -174,8 +193,8 @@ export class AppStore {
     }
 
     // Month Management
-    createMonth(year: number = DEFAULT_YEAR, monthIndex: number = new Date().getMonth()): Month {
-        const month = new Month(year, monthIndex);
+    createMonth(year: number = DEFAULT_YEAR, monthIndex: number = new Date().getMonth(), accountType: AccountType = 'personal'): Month {
+        const month = new Month(year, monthIndex, accountType);
         month.activate();
         this._months.push(month);
         this.save();
@@ -202,8 +221,108 @@ export class AppStore {
         this.save();
     }
 
-    monthExists(year: number, monthIndex: number): boolean {
-        return this._months.some(m => m.year === year && m.monthIndex === monthIndex);
+    monthExists(year: number, monthIndex: number, accountType: AccountType = 'personal'): boolean {
+        return this._months.some(m => m.year === year && m.monthIndex === monthIndex && m.accountType === accountType);
+    }
+
+    /**
+     * Move a transaction from sourceMonth to the matching month of targetAccountType.
+     * Creates the target month if it doesn't exist.
+     * Returns the target month name, or null on failure.
+     */
+    moveTransaction(sourceMonthId: string, transactionId: string, targetAccountType: AccountType): string | null {
+        const sourceMonth = this.getMonth(sourceMonthId);
+        if (!sourceMonth) return null;
+
+        const transaction = sourceMonth.getTransaction(transactionId);
+        if (!transaction) return null;
+
+        // Find or create the target month (same year/monthIndex, different account type)
+        let targetMonth = this._months.find(
+            m => m.year === sourceMonth.year && m.monthIndex === sourceMonth.monthIndex && m.accountType === targetAccountType
+        );
+
+        if (!targetMonth) {
+            targetMonth = this.createMonth(sourceMonth.year, sourceMonth.monthIndex, targetAccountType);
+        }
+
+        // Capture original data before move for undo
+        const originalData = {
+            description: transaction.description,
+            amount: transaction.amount,
+            type: transaction.type,
+            category_ids: [...transaction.category_ids],
+            note: transaction.note,
+            images: [...transaction.images],
+            payment_status: transaction.payment_status,
+        };
+
+        // Add to target
+        const newTransaction = targetMonth.addTransaction(transaction.description);
+        newTransaction.amount = transaction.amount;
+        newTransaction.type = targetAccountType === 'company' ? 'expense' : transaction.type;
+        newTransaction.category_ids = [...transaction.category_ids];
+        newTransaction.note = transaction.note;
+        newTransaction.images = [...transaction.images];
+        if (transaction.payment_status === 'paid') newTransaction.markPaid();
+        else if (transaction.payment_status === 'unpaid') newTransaction.markUnpaid();
+
+        // Remove from source
+        sourceMonth.removeTransaction(transactionId);
+        sourceMonth.calculateTotals();
+        targetMonth.calculateTotals();
+
+        // Store undo info (auto-expires after 10 seconds)
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = {
+            sourceMonthId,
+            targetMonthId: targetMonth.id,
+            newTransactionId: newTransaction.id,
+            originalTransactionData: originalData,
+        };
+        this._undoTimeout = setTimeout(() => {
+            this._lastMove = null;
+        }, 10_000);
+
+        this.save();
+        return targetMonth.name;
+    }
+
+    undoMoveTransaction(): string | null {
+        const undo = this._lastMove;
+        if (!undo) return null;
+
+        // Clear undo state immediately
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = null;
+
+        const targetMonth = this.getMonth(undo.targetMonthId);
+        const sourceMonth = this.getMonth(undo.sourceMonthId);
+        if (!targetMonth || !sourceMonth) return null;
+
+        // Remove the moved transaction from target
+        targetMonth.removeTransaction(undo.newTransactionId);
+
+        // Re-create in original source with original data
+        const restored = sourceMonth.addTransaction(undo.originalTransactionData.description);
+        restored.amount = undo.originalTransactionData.amount;
+        restored.type = undo.originalTransactionData.type as any;
+        restored.category_ids = [...undo.originalTransactionData.category_ids];
+        restored.note = undo.originalTransactionData.note;
+        restored.images = [...undo.originalTransactionData.images];
+        if (undo.originalTransactionData.payment_status === 'paid') restored.markPaid();
+        else if (undo.originalTransactionData.payment_status === 'unpaid') restored.markUnpaid();
+
+        sourceMonth.calculateTotals();
+        targetMonth.calculateTotals();
+        this.save();
+
+        return sourceMonth.name;
+    }
+
+    clearMoveUndo() {
+        if (this._undoTimeout) clearTimeout(this._undoTimeout);
+        this._lastMove = null;
     }
 
     createNextMonthFromClosed(closedMonthId: string): Month | undefined {
@@ -217,9 +336,9 @@ export class AppStore {
             nextYear++;
         }
         if (!SUPPORTED_YEARS.includes(nextYear as any)) return undefined;
-        if (this.monthExists(nextYear, nextMonthIndex)) return undefined;
+        if (this.monthExists(nextYear, nextMonthIndex, closedMonth.accountType)) return undefined;
 
-        const newMonth = this.createMonth(nextYear, nextMonthIndex);
+        const newMonth = this.createMonth(nextYear, nextMonthIndex, closedMonth.accountType);
         newMonth.previous_month_id = closedMonth.id;
         closedMonth.next_month_id = newMonth.id;
         newMonth.calculateTotals();

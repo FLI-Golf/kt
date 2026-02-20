@@ -17,7 +17,7 @@
 	}));
 
 	const expenseTransactions = $derived(month.transactions.filter(t => t.type === 'expense'));
-	const reimbursementTransactions = $derived(month.transactions.filter(t => t.type === 'reimbursement'));
+	const creditTransactions = $derived(month.transactions.filter(t => t.type === 'reimbursement' || t.type === 'refund'));
 	const pendingExpenses = $derived(expenseTransactions.filter(t => t.payment_status === 'pending'));
 
 	const handleMarkPaid = (transactionId: string) => {
@@ -88,8 +88,8 @@
 		<Content class="p-4">
 			<div class="mb-6 grid grid-cols-2 gap-4 text-center md:grid-cols-4">
 				<div class="rounded-lg bg-green-50 p-3">
-					<p class="text-sm text-gray-600">Reimbursements</p>
-					<p class="text-xl font-bold text-green-600">+${month.total_reimbursement.toFixed(2)}</p>
+					<p class="text-sm text-gray-600">{month.isCompany ? 'Reimbursements' : 'Refunds'}</p>
+					<p class="text-xl font-bold text-green-600">+${(month.isCompany ? month.total_reimbursement : month.total_refund).toFixed(2)}</p>
 				</div>
 				<div class="rounded-lg bg-red-50 p-3">
 					<p class="text-sm text-gray-600">Expenses</p>
@@ -138,11 +138,11 @@
 				<Button variant="outline" size="sm" onclick={handleMarkAllPaid}>Mark All Paid</Button>
 			</div>
 
-			{#if reimbursementTransactions.length > 0}
+			{#if creditTransactions.length > 0}
 				<div class="mb-4">
-					<h3 class="text-sm font-medium text-gray-700 mb-2">Reimbursements ({reimbursementTransactions.length})</h3>
+					<h3 class="text-sm font-medium text-gray-700 mb-2">{month.isCompany ? "Reimbursements" : "Refunds"} ({creditTransactions.length})</h3>
 					<div class="space-y-2">
-						{#each reimbursementTransactions as transaction (transaction.id)}
+						{#each creditTransactions as transaction (transaction.id)}
 							{@const categories = getCategoryNames(transaction.category_ids)}
 							<div class="rounded-lg border border-green-200 bg-green-50 p-3">
 								<div class="flex items-start justify-between">
@@ -192,6 +192,13 @@
 									</div>
 									{#if transaction.note}
 										<p class="text-xs text-gray-500 mt-1">{transaction.note}</p>
+									{/if}
+									{#if transaction.hasImages}
+										<div class="mt-1 flex gap-1">
+											{#each transaction.images as img (img.id)}
+												<img src={img.dataUrl} alt={img.name} class="h-10 w-10 rounded border object-cover" />
+											{/each}
+										</div>
 									{/if}
 								</div>
 

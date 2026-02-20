@@ -2,6 +2,7 @@
 	import { appStore, type Month } from '$lib/models';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, Header, Title, Content } from '$lib/components/ui/card';
+	import ExpenseReport from './ExpenseReport.svelte';
 
 	interface Props {
 		onSelectMonth: (month: Month) => void;
@@ -46,6 +47,12 @@
 			default: return 'bg-gray-100 text-gray-700';
 		}
 	};
+	const handleDeleteMonth = (e: Event, monthId: string, monthName: string) => {
+		e.stopPropagation();
+		if (confirm(`Delete "${monthName}" and all its transactions?`)) {
+			appStore.deleteMonth(monthId);
+		}
+	};
 </script>
 
 <div class="space-y-4">
@@ -74,6 +81,8 @@
 		</Card>
 	{/if}
 
+	<ExpenseReport />
+
 	<Card class="w-full">
 		<Header class="flex flex-row items-center justify-between">
 			<Title class="text-xl font-bold">Active Months</Title>
@@ -93,6 +102,9 @@
 								<div>
 									<div class="flex items-center gap-2">
 										<h3 class="font-medium">{month.name}</h3>
+										<span class="rounded px-1.5 py-0.5 text-xs font-medium {month.isCompany ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+											{month.isCompany ? 'Company' : 'Personal'}
+										</span>
 										<span class="rounded px-1.5 py-0.5 text-xs font-medium {getStatusBadge(month.status)}">
 											{month.status === 'pending_close' ? 'Pending' : month.status === 'active' ? 'Active' : 'Closed'}
 										</span>
@@ -101,13 +113,28 @@
 										{formatDate(month.start)} - {formatDate(month.end)}
 									</p>
 								</div>
-								<div class="text-right">
-									<p class="text-lg font-bold text-blue-600">
-										${month.total_amount.toFixed(2)}
-									</p>
-									<p class="text-sm text-gray-500">
-										{month.transactionCount} expense{month.transactionCount !== 1 ? 's' : ''}
-									</p>
+								<div class="flex items-center gap-2">
+									<div class="text-right">
+										<p class="text-lg font-bold text-blue-600">
+											${month.total_amount.toFixed(2)}
+										</p>
+										<p class="text-sm text-gray-500">
+											{month.transactionCount} expense{month.transactionCount !== 1 ? 's' : ''}
+										</p>
+									</div>
+									<!-- svelte-ignore a11y_no_static_element_interactions -->
+									<div
+										role="button"
+										tabindex="0"
+										class="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 cursor-pointer"
+										onclick={(e) => handleDeleteMonth(e, month.id, month.name)}
+										onkeydown={(e) => { if (e.key === "Enter") handleDeleteMonth(e, month.id, month.name); }}
+										title="Delete month"
+									>
+										<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+											<path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+										</svg>
+									</div>
 								</div>
 							</div>
 						</button>
