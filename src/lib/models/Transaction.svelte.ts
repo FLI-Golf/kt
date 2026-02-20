@@ -1,7 +1,7 @@
 import { generateId } from '$lib/commands.svelte';
 
 export type PaymentStatus = 'pending' | 'paid' | 'unpaid';
-export type TransactionType = 'expense' | 'income';
+export type TransactionType = 'expense' | 'reimbursement';
 
 export interface TransactionData {
     id: string;
@@ -49,8 +49,7 @@ export class Transaction {
     get created() { return this._state.created; }
     get updated() { return this._state.updated; }
     
-    // Helper to check if this is income
-    get isIncome() { return this._state.type === 'income'; }
+    get isReimbursement() { return this._state.type === 'reimbursement'; }
     get isExpense() { return this._state.type === 'expense'; }
 
     // Setters with auto-update timestamp
@@ -122,9 +121,11 @@ export class Transaction {
 
     static fromJSON(data: TransactionData): Transaction {
         const transaction = new Transaction();
+        // Migrate legacy 'income' type to 'reimbursement'
+        const type = (data.type as string) === 'income' ? 'reimbursement' : (data.type || 'expense');
         transaction._state = {
             ...data,
-            type: data.type || 'expense',
+            type: type as TransactionType,
             payment_status: data.payment_status || 'pending',
             paid_date: data.paid_date || null,
             category_ids: data.category_ids || []

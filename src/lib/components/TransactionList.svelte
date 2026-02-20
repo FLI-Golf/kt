@@ -76,7 +76,7 @@
 	};
 
 	const getTypeBadge = (type: string) => {
-		return type === 'income' 
+		return type === 'reimbursement' 
 			? 'bg-green-100 text-green-700' 
 			: 'bg-red-100 text-red-700';
 	};
@@ -155,8 +155,8 @@
 										<span class="text-gray-400">-</span>
 									{/if}
 								</td>
-								<td class="py-3 text-right font-medium {transaction.type === 'income' ? 'text-green-600' : 'text-red-600'}">
-									{transaction.type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
+								<td class="py-3 text-right font-medium {transaction.type === 'reimbursement' ? 'text-green-600' : 'text-red-600'}">
+									{transaction.type === 'reimbursement' ? '+' : '-'}${transaction.amount.toFixed(2)}
 								</td>
 								<td class="py-3 text-center">
 									{#if transaction.type === 'expense'}

@@ -15,7 +15,7 @@
 
 	let description = $state(transaction?.description ?? '');
 	let amount = $state(transaction?.amount ?? 0);
-	let type = $state<TransactionType>(transaction?.type ?? 'expense');
+	let type = $state<TransactionType>(transaction?.type ?? 'expense' as TransactionType);
 	let category_ids = $state<string[]>(transaction?.category_ids ?? []);
 	let note = $state(transaction?.note ?? '');
 
@@ -60,8 +60,8 @@
 					</button>
 					<button
 						type="button"
-						onclick={() => type = 'income'}
-						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {type === 'income' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+						onclick={() => type = 'reimbursement'}
+						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {type === 'reimbursement' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
 					>
 						Income
 					</button>
@@ -72,7 +72,7 @@
 				<Input
 					id="transaction-description"
 					type="text"
-					placeholder={type === 'income' ? 'e.g., Client payment' : 'e.g., Office supplies'}
+					placeholder={type === 'reimbursement' ? 'e.g., Client payment' : 'e.g., Office supplies'}
 					bind:value={description}
 					class="mt-1"
 					required

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { appStore, type Week } from '$lib/models';
-	import { WeekList, WeekForm, WeekDetail, WeekHistory, CategoryList, SyncStatus } from '$lib/components';
+	import { appStore, type Month, DEFAULT_YEAR } from '$lib/models';
+	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus } from '$lib/components';
 
 	// Initialize store on mount
 	$effect(() => {
@@ -10,71 +10,69 @@
 	// View state
 	type View = 'list' | 'create' | 'edit' | 'detail';
 	let currentView = $state<View>('list');
-	let selectedWeek = $state<Week | undefined>(undefined);
+	let selectedMonth = $state<Month | undefined>(undefined);
 	
 	// Tab state
 	type Tab = 'active' | 'history' | 'categories';
 	let currentTab = $state<Tab>('active');
 
 	// Counts for badges
-	const activeCount = $derived(appStore.weeks.filter(w => !w.isClosed).length);
-	const historyCount = $derived(appStore.weeks.filter(w => w.isClosed).length);
+	const activeCount = $derived(appStore.months.filter(m => !m.isClosed).length);
+	const historyCount = $derived(appStore.months.filter(m => m.isClosed).length);
 	const categoryCount = $derived(appStore.categoryCount);
 
-	const handleSelectWeek = (week: Week) => {
-		selectedWeek = week;
-		appStore.setActiveWeek(week.id);
+	const handleSelectMonth = (month: Month) => {
+		selectedMonth = month;
+		appStore.setActiveMonth(month.id);
 		currentView = 'detail';
 	};
 
-	const handleCreateWeek = () => {
+	const handleCreateMonth = () => {
 		currentView = 'create';
 	};
 
-	const handleSaveNewWeek = (data: { name: string; start: string; end: string }) => {
-		const week = appStore.createWeek(data.name);
-		week.start = data.start;
-		week.end = data.end;
-		week.activate();
-		appStore.save();
-		selectedWeek = week;
+	const handleSaveNewMonth = (data: { year: number; monthIndex: number }) => {
+		if (appStore.monthExists(data.year, data.monthIndex)) {
+			alert('A month already exists for that period.');
+			return;
+		}
+		const month = appStore.createMonth(data.year, data.monthIndex);
+		selectedMonth = month;
 		currentView = 'detail';
 	};
 
-	const handleEditWeek = () => {
+	const handleEditMonth = () => {
 		currentView = 'edit';
 	};
 
-	const handleUpdateWeek = (data: { name: string; start: string; end: string }) => {
-		if (selectedWeek) {
-			selectedWeek.name = data.name;
-			selectedWeek.start = data.start;
-			selectedWeek.end = data.end;
-			selectedWeek.calculateTotals();
+	const handleUpdateMonth = (data: { year: number; monthIndex: number }) => {
+		if (selectedMonth) {
+			// For edit, we just update the name since year/month define the period
+			selectedMonth.name = `${['January','February','March','April','May','June','July','August','September','October','November','December'][data.monthIndex]} ${data.year}`;
 			appStore.save();
 		}
 		currentView = 'detail';
 	};
 
 	const handleBack = () => {
-		selectedWeek = undefined;
+		selectedMonth = undefined;
 		currentView = 'list';
 	};
 
 	const handleCancel = () => {
-		if (selectedWeek) {
+		if (selectedMonth) {
 			currentView = 'detail';
 		} else {
 			currentView = 'list';
 		}
 	};
 
-	const handleCreateNextWeek = () => {
-		if (selectedWeek && selectedWeek.isClosed) {
-			const nextWeek = appStore.createNextWeekFromClosed(selectedWeek.id);
-			if (nextWeek) {
-				selectedWeek = nextWeek;
-				appStore.setActiveWeek(nextWeek.id);
+	const handleCreateNextMonth = () => {
+		if (selectedMonth && selectedMonth.isClosed) {
+			const nextMonth = appStore.createNextMonthFromClosed(selectedMonth.id);
+			if (nextMonth) {
+				selectedMonth = nextMonth;
+				appStore.setActiveMonth(nextMonth.id);
 			}
 		}
 	};
@@ -87,8 +85,8 @@
 	<div class="mx-auto max-w-4xl">
 		<header class="mb-6 flex items-start justify-between">
 			<div>
-				<h1 class="text-3xl font-bold text-gray-900">Finance Tracker</h1>
-				<p class="text-gray-600">Weekly Income & Expense Management</p>
+				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
+				<p class="text-gray-600">Monthly Expense & Reimbursement Management</p>
 			</div>
 			<SyncStatus />
 		</header>
@@ -136,23 +134,23 @@
 
 				<!-- Tab Content -->
 				{#if currentTab === 'active'}
-					<WeekList onSelectWeek={handleSelectWeek} onCreateWeek={handleCreateWeek} />
+					<MonthList onSelectMonth={handleSelectMonth} onCreateMonth={handleCreateMonth} />
 				{:else if currentTab === 'history'}
-					<WeekHistory onSelectWeek={handleSelectWeek} />
+					<MonthHistory onSelectMonth={handleSelectMonth} />
 				{:else if currentTab === 'categories'}
 					<CategoryList />
 				{/if}
 			</div>
 		{:else if currentView === 'create'}
-			<WeekForm onSave={handleSaveNewWeek} onCancel={handleCancel} />
-		{:else if currentView === 'edit' && selectedWeek}
-			<WeekForm week={selectedWeek} onSave={handleUpdateWeek} onCancel={handleCancel} />
-		{:else if currentView === 'detail' && selectedWeek}
-			<WeekDetail 
-				week={selectedWeek} 
-				onBack={handleBack} 
-				onEdit={handleEditWeek} 
-				onCreateNextWeek={handleCreateNextWeek}
+			<MonthForm onSave={handleSaveNewMonth} onCancel={handleCancel} />
+		{:else if currentView === 'edit' && selectedMonth}
+			<MonthForm month={selectedMonth} onSave={handleUpdateMonth} onCancel={handleCancel} />
+		{:else if currentView === 'detail' && selectedMonth}
+			<MonthDetail
+				month={selectedMonth}
+				onBack={handleBack}
+				onEdit={handleEditMonth}
+				onCreateNextMonth={handleCreateNextMonth}
 			/>
 		{/if}
 	</div>

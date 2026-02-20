@@ -1,8 +1,8 @@
-export { default as WeekList } from './WeekList.svelte';
-export { default as WeekForm } from './WeekForm.svelte';
-export { default as WeekDetail } from './WeekDetail.svelte';
-export { default as WeekClose } from './WeekClose.svelte';
-export { default as WeekHistory } from './WeekHistory.svelte';
+export { default as MonthList } from './MonthList.svelte';
+export { default as MonthForm } from './MonthForm.svelte';
+export { default as MonthDetail } from './MonthDetail.svelte';
+export { default as MonthClose } from './MonthClose.svelte';
+export { default as MonthHistory } from './MonthHistory.svelte';
 export { default as TransactionList } from './TransactionList.svelte';
 export { default as TransactionForm } from './TransactionForm.svelte';
 export { default as CategorySelector } from './CategorySelector.svelte';

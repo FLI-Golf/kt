@@ -7,10 +7,17 @@
 	"features": {
 		"ghcr.io/devcontainers/features/node:1": {
 			"version": "lts"
+		},
+		"ghcr.io/devcontainers/features/desktop-lite:1": {
+			"password": "vscode",
+			"webPort": "6080",
+			"vncPort": "5901"
 		}
 	},
 	"postCreateCommand": "npm install",
 	"remoteEnv": {
-		"PATH": "/home/vscode/.cargo/bin:${containerEnv:PATH}"
-	}
+		"PATH": "/home/vscode/.cargo/bin:${containerEnv:PATH}",
+		"DISPLAY": ":1"
+	},
+	"forwardPorts": [1420, 6080]
 }
