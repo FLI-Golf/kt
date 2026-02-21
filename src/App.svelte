@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { appStore, type Month, type AccountType, DEFAULT_YEAR } from '$lib/models';
-	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus, CsvImporter } from '$lib/components';
-	import CompanyCsvImporter from '$lib/components/CompanyCsvImporter.svelte';
+	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus, CsvImporter, CompanyCsvImporter, ChaseImporter } from '$lib/components';
 
 	// Initialize store on mount
 	$effect(() => {
@@ -9,7 +8,7 @@
 	});
 
 	// View state
-	type View = 'list' | 'create' | 'edit' | 'detail' | 'import' | 'import-company';
+	type View = 'list' | 'create' | 'edit' | 'detail' | 'import' | 'import-company' | 'import-chase';
 	let currentView = $state<View>('list');
 	let selectedMonth = $state<Month | undefined>(undefined);
 	
@@ -84,25 +83,40 @@
 
 <main class="min-h-screen bg-gray-100 p-4 md:p-8">
 	<div class="mx-auto max-w-4xl">
-		<header class="mb-6 flex items-start justify-between">
-			<div>
-				<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
-				<p class="text-gray-600">Monthly Expense & Reimbursement Management</p>
+		<header class="mb-6 p-6">
+			<div class="flex items-start justify-between">
+			<div class="flex items-center gap-3">
+				<div class="rounded-xl bg-indigo-100 p-2.5">
+					<svg class="h-8 w-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+					</svg>
+				</div>
+				<div>
+					<h1 class="text-3xl font-bold text-gray-900">Expense Tracker</h1>
+					<p class="text-gray-500">Monthly Expense & Reimbursement Management</p>
+				</div>
 			</div>
 			<div class="flex items-center gap-2">
 				<button
 					onclick={() => currentView = 'import'}
-					class="rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 transition-colors hover:bg-blue-100"
+					class="rounded-lg bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-200"
 				>
 					Import Personal
 				</button>
 				<button
 					onclick={() => currentView = 'import-company'}
-					class="rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 transition-colors hover:bg-purple-100"
+					class="rounded-lg bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-200"
 				>
 					Import Company
 				</button>
+				<button
+					onclick={() => currentView = 'import-chase'}
+					class="rounded-lg bg-indigo-100 px-3 py-1.5 text-sm font-medium text-indigo-700 transition-colors hover:bg-indigo-200"
+				>
+					Import Chase
+				</button>
 				<SyncStatus />
+			</div>
 			</div>
 		</header>
 
@@ -171,6 +185,8 @@
 			<CsvImporter onClose={() => currentView = 'list'} />
 		{:else if currentView === 'import-company'}
 			<CompanyCsvImporter onClose={() => currentView = 'list'} />
+		{:else if currentView === 'import-chase'}
+			<ChaseImporter onClose={() => currentView = 'list'} />
 		{/if}
 	</div>
 </main>

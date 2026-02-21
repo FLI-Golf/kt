@@ -9,6 +9,8 @@
 	import TransactionDropZone from './TransactionDropZone.svelte';
 	import MonthClose from './MonthClose.svelte';
 	import CsvImporter from './CsvImporter.svelte';
+	import PaymentGroupForm from './PaymentGroupForm.svelte';
+	import PaymentGroupList from './PaymentGroupList.svelte';
 
 	interface Props {
 		month: Month;
@@ -22,6 +24,7 @@
 	let showAddTransaction = $state(false);
 	let showCsvImport = $state(false);
 	let editingTransactionId = $state<string | null>(null);
+	let showPaymentGroup = $state(false);
 
 	const handleSelectCommonTransaction = (ct: CommonTransaction) => {
 		const transaction = month.addTransaction(ct.description);
@@ -177,6 +180,9 @@
 				</div>
 				<div class="flex gap-2">
 					{#if month.isActive}
+						<Button size="sm" onclick={() => (showPaymentGroup = !showPaymentGroup)} class="bg-green-600 hover:bg-green-700">
+							Group Pay
+						</Button>
 						<Button size="sm" onclick={handleStartClose} class="bg-orange-500 hover:bg-orange-600">
 							Close Month
 						</Button>
@@ -219,6 +225,12 @@
 				</div>
 			</Content>
 		</Card>
+
+		{#if showPaymentGroup && month.isActive}
+			<PaymentGroupForm monthId={month.id} onClose={() => (showPaymentGroup = false)} />
+		{/if}
+
+		<PaymentGroupList />
 
 		{#if month.isActive}
 			<div class="grid grid-cols-1 gap-4 lg:grid-cols-4">
