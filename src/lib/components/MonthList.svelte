@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { appStore, type Month } from '$lib/models';
 	import { Button } from '$lib/components/ui/button';
-	import { Card, Header, Title, Content } from '$lib/components/ui/card';
+	import { Card, Header, Title, Content, Footer } from '$lib/components/ui/card';
 	import ExpenseReport from './ExpenseReport.svelte';
 
 	interface Props {
@@ -11,19 +11,84 @@
 
 	let { onSelectMonth, onCreateMonth }: Props = $props();
 
+	let activeTab = $state<'all' | 'personal' | 'company'>('all');
+
+	type MonthSortField = 'date' | 'name' | 'amount' | 'count';
+	type SortDir = 'asc' | 'desc';
+	let sortField = $state<MonthSortField>('date');
+	let sortDir = $state<SortDir>('desc');
+
 	const formatDate = (iso: string) => {
 		return new Date(iso).toLocaleDateString();
 	};
 
 	// Only show active and pending_close months (not closed - those go in MonthHistory)
-	const activeMonths = $derived(
+	const allActiveMonths = $derived(
 		appStore.months
 			.filter(m => !m.isClosed)
 			.sort((a, b) => {
-				if (a.year !== b.year) return b.year - a.year;
-				return b.monthIndex - a.monthIndex;
+				let cmp = 0;
+				switch (sortField) {
+					case 'date':
+						cmp = a.year !== b.year ? a.year - b.year : a.monthIndex - b.monthIndex;
+						break;
+					case 'name':
+						cmp = a.name.localeCompare(b.name);
+						break;
+					case 'amount':
+						cmp = a.total_amount - b.total_amount;
+						break;
+					case 'count':
+						cmp = a.transactionCount - b.transactionCount;
+						break;
+				}
+				return sortDir === 'asc' ? cmp : -cmp;
 			})
 	);
+
+	const toggleSort = (field: MonthSortField) => {
+		if (sortField === field) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortField = field;
+			sortDir = field === 'date' ? 'desc' : 'asc';
+		}
+		monthsPage = 1;
+	};
+
+	const getSortIndicator = (field: MonthSortField) => {
+		if (sortField !== field) return '';
+		return sortDir === 'asc' ? ' ↑' : ' ↓';
+	};
+
+	const activeMonths = $derived(
+		activeTab === 'all'
+			? allActiveMonths
+			: allActiveMonths.filter(m => m.accountType === activeTab)
+	);
+
+	const personalCount = $derived(allActiveMonths.filter(m => m.isPersonal).length);
+	const companyCount = $derived(allActiveMonths.filter(m => m.isCompany).length);
+
+	const MONTHS_PAGE_SIZE = 5;
+	let monthsPage = $state(1);
+
+	const monthsTotalPages = $derived(Math.max(1, Math.ceil(activeMonths.length / MONTHS_PAGE_SIZE)));
+	const paginatedMonths = $derived(
+		activeMonths.slice((monthsPage - 1) * MONTHS_PAGE_SIZE, monthsPage * MONTHS_PAGE_SIZE)
+	);
+
+	// Reset page when tab changes
+	$effect(() => {
+		activeTab;
+		monthsPage = 1;
+	});
+
+	const goToMonthsPage = (page: number) => {
+		if (page >= 1 && page <= monthsTotalPages) {
+			monthsPage = page;
+		}
+	};
 
 	const activeMonthsTotals = $derived(() => {
 		let totalExpenses = 0;
@@ -84,16 +149,45 @@
 	<ExpenseReport />
 
 	<Card class="w-full">
-		<Header class="flex flex-row items-center justify-between">
-			<Title class="text-xl font-bold">Active Months</Title>
-			<Button onclick={onCreateMonth} size="sm">+ New Month</Button>
+		<Header class="space-y-3">
+			<div class="flex items-center justify-between">
+				<Title class="text-xl font-bold">Active Months</Title>
+				<Button onclick={onCreateMonth} size="sm">+ New Month</Button>
+			</div>
+			<div class="flex gap-1 rounded-lg bg-gray-100 p-1">
+				<button
+					class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+					onclick={() => (activeTab = 'all')}
+				>
+					All ({allActiveMonths.length})
+				</button>
+				<button
+					class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeTab === 'personal' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+					onclick={() => (activeTab = 'personal')}
+				>
+					Personal ({personalCount})
+				</button>
+				<button
+					class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeTab === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+					onclick={() => (activeTab = 'company')}
+				>
+					Company ({companyCount})
+				</button>
+			</div>
+			<div class="flex items-center gap-2 text-xs text-gray-500">
+				<span class="font-medium">Sort:</span>
+				<button class="rounded px-2 py-1 hover:bg-gray-200 {sortField === 'date' ? 'bg-gray-200 font-medium text-gray-900' : ''}" onclick={() => toggleSort('date')}>Date{getSortIndicator('date')}</button>
+				<button class="rounded px-2 py-1 hover:bg-gray-200 {sortField === 'name' ? 'bg-gray-200 font-medium text-gray-900' : ''}" onclick={() => toggleSort('name')}>Name{getSortIndicator('name')}</button>
+				<button class="rounded px-2 py-1 hover:bg-gray-200 {sortField === 'amount' ? 'bg-gray-200 font-medium text-gray-900' : ''}" onclick={() => toggleSort('amount')}>Amount{getSortIndicator('amount')}</button>
+				<button class="rounded px-2 py-1 hover:bg-gray-200 {sortField === 'count' ? 'bg-gray-200 font-medium text-gray-900' : ''}" onclick={() => toggleSort('count')}>Count{getSortIndicator('count')}</button>
+			</div>
 		</Header>
 		<Content class="p-4">
 			{#if activeMonths.length === 0}
 				<p class="text-center text-gray-500">No active months. Create one to get started.</p>
 			{:else}
 				<div class="space-y-2">
-					{#each activeMonths as month (month.id)}
+					{#each paginatedMonths as month (month.id)}
 						<button
 							class="w-full rounded-lg border p-3 text-left transition-colors hover:bg-gray-50 {appStore.activeMonthId === month.id ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'}"
 							onclick={() => onSelectMonth(month)}
@@ -142,5 +236,19 @@
 				</div>
 			{/if}
 		</Content>
+		{#if monthsTotalPages > 1}
+			<Footer class="flex items-center justify-between p-4">
+				<span class="text-sm text-gray-500">
+					{(monthsPage - 1) * MONTHS_PAGE_SIZE + 1}-{Math.min(monthsPage * MONTHS_PAGE_SIZE, activeMonths.length)} of {activeMonths.length}
+				</span>
+				<div class="flex gap-1">
+					<Button variant="outline" size="sm" onclick={() => goToMonthsPage(1)} disabled={monthsPage === 1}>First</Button>
+					<Button variant="outline" size="sm" onclick={() => goToMonthsPage(monthsPage - 1)} disabled={monthsPage === 1}>Prev</Button>
+					<span class="flex items-center px-2 text-sm text-gray-600">{monthsPage}/{monthsTotalPages}</span>
+					<Button variant="outline" size="sm" onclick={() => goToMonthsPage(monthsPage + 1)} disabled={monthsPage === monthsTotalPages}>Next</Button>
+					<Button variant="outline" size="sm" onclick={() => goToMonthsPage(monthsTotalPages)} disabled={monthsPage === monthsTotalPages}>Last</Button>
+				</div>
+			</Footer>
+		{/if}
 	</Card>
 </div>

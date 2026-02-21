@@ -18,7 +18,7 @@
 
 	const expenseTransactions = $derived(month.transactions.filter(t => t.type === 'expense'));
 	const creditTransactions = $derived(month.transactions.filter(t => t.type === 'reimbursement' || t.type === 'refund'));
-	const pendingExpenses = $derived(expenseTransactions.filter(t => t.payment_status === 'pending'));
+	const pendingExpenses = $derived(expenseTransactions.filter(t => t.payment_status === 'unpaid'));
 
 	const handleMarkPaid = (transactionId: string) => {
 		const transaction = month.getTransaction(transactionId);
@@ -171,7 +171,7 @@
 				<div class="space-y-3">
 					{#each sortedTransactions.filter(t => t.type === 'expense') as transaction (transaction.id)}
 						{@const categories = getCategoryNames(transaction.category_ids)}
-						<div class="rounded-lg border p-3 {transaction.payment_status === 'pending' ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}">
+						<div class="rounded-lg border p-3 {transaction.payment_status === 'unpaid' ? 'border-orange-300 bg-orange-50' : 'border-gray-200'}">
 							<div class="flex items-start justify-between">
 								<div>
 									<div class="flex items-center gap-2">
@@ -202,7 +202,7 @@
 									{/if}
 								</div>
 
-								{#if transaction.payment_status === 'pending'}
+								{#if transaction.payment_status === 'unpaid'}
 									<div class="flex gap-1">
 										<Button size="sm" onclick={() => handleMarkPaid(transaction.id)} class="bg-green-600 hover:bg-green-700">Paid</Button>
 										<Button size="sm" variant="outline" onclick={() => handleMarkUnpaid(transaction.id)} class="text-red-600 hover:bg-red-50">Unpaid</Button>

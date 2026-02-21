@@ -167,7 +167,7 @@ export class Month {
 	// Payment status counts
 	get transactionsPaid() { return this._transactions.filter(t => t.payment_status === 'paid'); }
 	get transactionsUnpaid() { return this._transactions.filter(t => t.payment_status === 'unpaid'); }
-	get transactionsPending() { return this._transactions.filter(t => t.payment_status === 'pending'); }
+	get transactionsPending() { return this._transactions.filter(t => t.payment_status === 'unpaid'); }
 
 	// Methods
 	private touch() {
