@@ -32,7 +32,7 @@ export class Transaction {
         amount: 0,
         type: 'expense',
         category_ids: [],
-        payment_status: 'pending',
+        payment_status: 'unpaid',
         paid_date: null,
         note: '',
         images: [],
@@ -147,7 +147,7 @@ export class Transaction {
     }
 
     resetPaymentStatus() {
-        this._state.payment_status = 'pending';
+        this._state.payment_status = 'unpaid';
         this._state.paid_date = null;
         this.touch();
     }
@@ -164,7 +164,7 @@ export class Transaction {
         transaction._state = {
             ...data,
             type: type as TransactionType,
-            payment_status: data.payment_status || 'pending',
+            payment_status: data.payment_status === 'pending' ? 'unpaid' : (data.payment_status || 'unpaid'),
             paid_date: data.paid_date || null,
             category_ids: data.category_ids || [],
             images: data.images || []
