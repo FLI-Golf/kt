@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { type Month, appStore, MONTH_NAMES, SUPPORTED_YEARS } from '$lib/models';
+	import { type Month, type AccountType, appStore, MONTH_NAMES, SUPPORTED_YEARS } from '$lib/models';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, Header, Title, Content, Footer } from '$lib/components/ui/card';
 
@@ -29,6 +29,7 @@
 		willCreate: boolean;
 	}
 
+	let accountType = $state<AccountType>('personal');
 	let parsedRows = $state<ParsedRow[]>([]);
 	let parseError = $state<string | null>(null);
 	let fileName = $state('');
@@ -152,7 +153,7 @@
 			const year = parseInt(yearStr);
 			const monthIndex = parseInt(miStr);
 			const existing = appStore.months.find(
-				m => m.year === year && m.monthIndex === monthIndex && m.accountType === 'personal'
+				m => m.year === year && m.monthIndex === monthIndex && m.accountType === accountType
 			);
 
 			groups.push({
@@ -220,7 +221,7 @@
 			let month = group.existingMonth;
 			if (!month) {
 				if (!SUPPORTED_YEARS.includes(group.year as any)) continue;
-				month = appStore.createMonth(group.year, group.monthIndex, 'personal');
+				month = appStore.createMonth(group.year, group.monthIndex, accountType);
 			}
 
 			for (const row of selectedRows) {
@@ -251,8 +252,32 @@
 
 <Card class="w-full">
 	<Header>
-		<Title class="text-xl font-bold">Import Bank Statement (CSV)</Title>
-		<p class="text-sm text-gray-500">Transactions are grouped by month and imported into the correct period</p>
+		<div class="flex items-center justify-between">
+			<div>
+				<Title class="text-xl font-bold">Import Bank Statement (CSV)</Title>
+				<p class="text-sm text-gray-500">Transactions are grouped by month and imported into the correct period</p>
+			</div>
+			<div class="flex items-center gap-1 rounded-lg bg-gray-100 p-1">
+				<button
+					class="rounded-md px-3 py-1 text-sm font-medium transition-colors {accountType === 'personal' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600'}"
+					onclick={() => (accountType = 'personal')}
+				>
+					Personal
+				</button>
+				<button
+					class="rounded-md px-3 py-1 text-sm font-medium transition-colors {accountType === 'business' ? 'bg-white text-amber-700 shadow-sm' : 'text-gray-600'}"
+					onclick={() => (accountType = 'business')}
+				>
+					Business
+				</button>
+				<button
+					class="rounded-md px-3 py-1 text-sm font-medium transition-colors {accountType === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600'}"
+					onclick={() => (accountType = 'company')}
+				>
+					Company
+				</button>
+			</div>
+		</div>
 	</Header>
 	<Content class="p-4">
 		{#if importDone}
@@ -412,7 +437,7 @@
 				</div>
 
 				<p class="text-xs text-gray-500">
-					Months marked <span class="rounded bg-yellow-100 px-1 py-0.5 text-yellow-700">New</span> will be created automatically as Personal months.
+					Months marked <span class="rounded bg-yellow-100 px-1 py-0.5 text-yellow-700">New</span> will be created automatically as <span class="font-medium capitalize">{accountType}</span> months.
 					"KEEP THE CHANGE" rows are auto-deselected.
 				</p>
 			</div>

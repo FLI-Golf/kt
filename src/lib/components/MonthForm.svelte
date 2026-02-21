@@ -41,6 +41,13 @@
 					</button>
 					<button
 						type="button"
+						onclick={() => accountType = 'business'}
+						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {accountType === 'business' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
+					>
+						Business
+					</button>
+					<button
+						type="button"
 						onclick={() => accountType = 'company'}
 						class="flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-colors {accountType === 'company' ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}"
 					>
@@ -50,7 +57,9 @@
 				<p class="mt-1 text-xs text-gray-500">
 					{accountType === 'personal'
 						? 'Personal expenses — refunds available'
-						: 'Company expenses — reimbursements available'}
+						: accountType === 'business'
+							? 'Business expenses — reimbursable by company'
+							: 'Company expenses — imported from company records'}
 				</p>
 			</div>
 			<div>

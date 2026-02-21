@@ -2,9 +2,9 @@ import { generateId } from '$lib/commands.svelte';
 import { Transaction, type TransactionData } from './Transaction.svelte';
 
 export type MonthStatus = 'active' | 'pending_close' | 'closed';
-export type AccountType = 'personal' | 'company';
+export type AccountType = 'personal' | 'company' | 'business';
 
-export const SUPPORTED_YEARS = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030] as const;
+export const SUPPORTED_YEARS = [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030] as const;
 export const DEFAULT_YEAR = 2026;
 
 export const MONTH_NAMES = [
@@ -38,8 +38,8 @@ export interface MonthData {
 
 /** Build a display name like "January 2026 - Personal" */
 function buildMonthName(year: number, monthIndex: number, accountType: AccountType): string {
-	const label = accountType === 'company' ? 'Company' : 'Personal';
-	return `${MONTH_NAMES[monthIndex]} ${year} - ${label}`;
+	const labels: Record<AccountType, string> = { personal: 'Personal', company: 'Company', business: 'Business' };
+	return `${MONTH_NAMES[monthIndex]} ${year} - ${labels[accountType]}`;
 }
 
 /** First day of the month as ISO string */
@@ -99,6 +99,7 @@ export class Month {
 	get accountType() { return this._state.accountType; }
 	get isPersonal() { return this._state.accountType === 'personal'; }
 	get isCompany() { return this._state.accountType === 'company'; }
+	get isBusiness() { return this._state.accountType === 'business'; }
 	get start() { return this._state.start; }
 	get end() { return this._state.end; }
 	get total_amount() { return this._state.total_amount; }

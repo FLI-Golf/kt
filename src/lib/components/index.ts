@@ -16,3 +16,4 @@ export { default as DonutChart } from './DonutChart.svelte';
 export { default as PaymentGroupForm } from './PaymentGroupForm.svelte';
 export { default as PaymentGroupList } from './PaymentGroupList.svelte';
 export { default as ChaseImporter } from './ChaseImporter.svelte';
+export { default as ResolveView } from './ResolveView.svelte';

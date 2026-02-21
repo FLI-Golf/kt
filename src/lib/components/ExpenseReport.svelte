@@ -83,6 +83,7 @@
 		const badges: { label: string; value: string; color: string }[] = [];
 		// Account type
 		if (accountTab === 'company') badges.push({ label: 'Account', value: 'Company', color: 'bg-purple-100 text-purple-700' });
+		else if (accountTab === 'business') badges.push({ label: 'Account', value: 'Business', color: 'bg-amber-100 text-amber-700' });
 		else if (accountTab === 'personal') badges.push({ label: 'Account', value: 'Personal', color: 'bg-blue-100 text-blue-700' });
 		else badges.push({ label: 'Account', value: 'All', color: 'bg-gray-100 text-gray-700' });
 		// Date range
@@ -140,16 +141,22 @@
 		</div>
 		<div class="flex gap-1 rounded-lg bg-gray-100 p-1">
 			<button
-				class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {accountTab === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
-				onclick={() => (accountTab = 'company')}
-			>
-				Company
-			</button>
-			<button
 				class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {accountTab === 'personal' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
 				onclick={() => (accountTab = 'personal')}
 			>
 				Personal
+			</button>
+			<button
+				class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {accountTab === 'business' ? 'bg-white text-amber-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+				onclick={() => (accountTab = 'business')}
+			>
+				Business
+			</button>
+			<button
+				class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {accountTab === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+				onclick={() => (accountTab = 'company')}
+			>
+				Company
 			</button>
 			<button
 				class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {accountTab === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
@@ -258,8 +265,8 @@
 										{#if colMonth}<td class="py-2 pr-2 text-xs text-gray-500">{expense.monthName}</td>{/if}
 										{#if colType}
 										<td class="py-2 pr-2">
-											<span class="rounded px-1.5 py-0.5 text-xs font-medium {expense.accountType === 'company' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
-												{expense.accountType === 'company' ? 'Company' : 'Personal'}
+											<span class="rounded px-1.5 py-0.5 text-xs font-medium {expense.accountType === 'business' ? 'bg-amber-100 text-amber-700' : expense.accountType === 'company' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+												{expense.accountType === 'business' ? 'Business' : expense.accountType === 'company' ? 'Company' : 'Personal'}
 											</span>
 										</td>
 										{/if}

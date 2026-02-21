@@ -205,8 +205,8 @@
 			<Content class="p-4">
 				<div class="grid grid-cols-2 gap-4 text-center md:grid-cols-4">
 					<div class="rounded-lg bg-green-50 p-3">
-						<p class="text-sm text-gray-600">{month.isCompany ? 'Reimbursements' : 'Refunds'}</p>
-						<p class="text-xl font-bold text-green-600">+${(month.isCompany ? month.total_reimbursement : month.total_refund).toFixed(2)}</p>
+						<p class="text-sm text-gray-600">{month.isCompany || month.isBusiness ? 'Reimbursements' : 'Refunds'}</p>
+						<p class="text-xl font-bold text-green-600">+${((month.isCompany || month.isBusiness) ? month.total_reimbursement : month.total_refund).toFixed(2)}</p>
 					</div>
 					<div class="rounded-lg bg-red-50 p-3">
 						<p class="text-sm text-gray-600">Expenses</p>
