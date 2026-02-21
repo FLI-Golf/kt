@@ -13,3 +13,6 @@ export { default as CsvImporter } from './CsvImporter.svelte';
 export { default as CompanyCsvImporter } from './CompanyCsvImporter.svelte';
 export { default as ExpenseReport } from './ExpenseReport.svelte';
 export { default as DonutChart } from './DonutChart.svelte';
+export { default as PaymentGroupForm } from './PaymentGroupForm.svelte';
+export { default as PaymentGroupList } from './PaymentGroupList.svelte';
+export { default as ChaseImporter } from './ChaseImporter.svelte';

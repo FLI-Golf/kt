@@ -1,4 +1,5 @@
 import { Month, type MonthData, type AccountType, DEFAULT_YEAR, SUPPORTED_YEARS } from './Month.svelte';
+import { PaymentGroup, type PaymentGroupData, type PaymentGroupTransaction } from './PaymentGroup.svelte';
 import { Category, type CategoryData, DEFAULT_CATEGORIES } from './Category.svelte';
 import { CommonTransaction, type CommonTransactionData } from './CommonTransaction.svelte';
 import { pbService } from '$lib/services';
@@ -12,6 +13,7 @@ interface AppData {
     categories: CategoryData[];
     commonTransactions: CommonTransactionData[];
     activeMonthId: string | null;
+    paymentGroups: PaymentGroupData[];
     version: number;
 }
 
@@ -49,6 +51,7 @@ export class AppStore {
     private _lastSynced = $state<string | null>(null);
     private _saveTimeout: ReturnType<typeof setTimeout> | null = null;
     private _lastMove = $state<MoveUndoInfo | null>(null);
+    private _paymentGroups = $state<PaymentGroup[]>([]);
     private _undoTimeout: ReturnType<typeof setTimeout> | null = null;
 
     get months() { return this._months; }
@@ -60,6 +63,7 @@ export class AppStore {
     get syncError() { return this._syncError; }
     get lastSynced() { return this._lastSynced; }
     get lastMove() { return this._lastMove; }
+    get paymentGroups() { return this._paymentGroups; }
 
     get isCloudEnabled() {
         return !DISABLE_CLOUD_SYNC && pbService.isConfigured;
@@ -230,6 +234,43 @@ export class AppStore {
      * Creates the target month if it doesn't exist.
      * Returns the target month name, or null on failure.
      */
+    createPaymentGroup(checkNumber: string, note: string, transactions: PaymentGroupTransaction[]): string | null {
+        if (!checkNumber || transactions.length === 0) return null;
+        const group = new PaymentGroup(checkNumber);
+        group.note = note;
+        for (const t of transactions) {
+            group.addTransaction(t.transactionId, t.monthId, t.description, t.amount);
+        }
+        this._paymentGroups.push(group);
+        this.save();
+        return group.id;
+    }
+
+    undoPaymentGroup(groupId: string) {
+        const group = this._paymentGroups.find(g => g.id === groupId);
+        if (!group) return;
+
+        // Mark all transactions in the group as unpaid
+        for (const gt of group.transactions) {
+            const month = this.getMonth(gt.monthId);
+            if (month) {
+                const transaction = month.getTransaction(gt.transactionId);
+                if (transaction) {
+                    transaction.markUnpaid();
+                }
+                month.calculateTotals();
+            }
+        }
+
+        // Remove the group
+        this._paymentGroups = this._paymentGroups.filter(g => g.id !== groupId);
+        this.save();
+    }
+
+    getPaymentGroup(id: string): PaymentGroup | undefined {
+        return this._paymentGroups.find(g => g.id === id);
+    }
+
     moveTransaction(sourceMonthId: string, transactionId: string, targetAccountType: AccountType): string | null {
         const sourceMonth = this.getMonth(sourceMonthId);
         if (!sourceMonth) return null;
@@ -376,6 +417,7 @@ export class AppStore {
             categories: this._categories.map(c => c.toJSON()),
             commonTransactions: this._commonTransactions.map(ct => ct.toJSON()),
             activeMonthId: this._activeMonthId,
+            paymentGroups: this._paymentGroups.map(g => g.toJSON()),
             version: 3
         };
     }
@@ -386,6 +428,7 @@ export class AppStore {
         this._categories = (data.categories || []).map(c => Category.fromJSON(c));
         this._commonTransactions = (data.commonTransactions || []).map(ct => CommonTransaction.fromJSON(ct));
         this._activeMonthId = data.activeMonthId ?? data.activeWeekId ?? null;
+        this._paymentGroups = (data.paymentGroups || []).map(g => PaymentGroup.fromJSON(g));
         if (this._categories.length === 0) {
             this.initializeDefaultCategories();
         }
@@ -475,6 +518,7 @@ export class AppStore {
         this._months = [];
         this._categories = [];
         this._commonTransactions = [];
+        this._paymentGroups = [];
         this._activeMonthId = null;
         if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY);
         if (pbService.isConfigured) this.syncToCloud();

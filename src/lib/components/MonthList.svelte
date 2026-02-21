@@ -90,19 +90,7 @@
 		}
 	};
 
-	const activeMonthsTotals = $derived(() => {
-		let totalExpenses = 0;
-		let totalPaid = 0;
-		let totalUnpaid = 0;
 
-		for (const month of activeMonths) {
-			totalExpenses += month.total_amount;
-			totalPaid += month.total_paid;
-			totalUnpaid += month.total_unpaid;
-		}
-
-		return { totalExpenses, totalPaid, totalUnpaid };
-	});
 
 	const getStatusBadge = (status: string) => {
 		switch (status) {
@@ -121,37 +109,19 @@
 </script>
 
 <div class="space-y-4">
-	{#if activeMonths.length > 0}
-		{@const totals = activeMonthsTotals()}
-		<Card class="w-full">
-			<Header>
-				<Title class="text-lg font-bold">Current Month Totals</Title>
-			</Header>
-			<Content class="p-4">
-				<div class="grid grid-cols-3 gap-4 text-center">
-					<div class="rounded-lg bg-blue-50 p-3">
-						<p class="text-sm text-gray-600">Total Expenses</p>
-						<p class="text-xl font-bold text-blue-600">${totals.totalExpenses.toFixed(2)}</p>
-					</div>
-					<div class="rounded-lg bg-green-50 p-3">
-						<p class="text-sm text-gray-600">Paid</p>
-						<p class="text-xl font-bold text-green-600">${totals.totalPaid.toFixed(2)}</p>
-					</div>
-					<div class="rounded-lg bg-red-50 p-3">
-						<p class="text-sm text-gray-600">Unpaid</p>
-						<p class="text-xl font-bold text-red-600">${totals.totalUnpaid.toFixed(2)}</p>
-					</div>
-				</div>
-			</Content>
-		</Card>
-	{/if}
-
 	<ExpenseReport />
 
 	<Card class="w-full">
 		<Header class="space-y-3">
 			<div class="flex items-center justify-between">
-				<Title class="text-xl font-bold">Active Months</Title>
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-emerald-100 p-1.5">
+						<svg class="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+						</svg>
+					</div>
+					<Title class="text-xl font-bold">Active Months</Title>
+				</div>
 				<Button onclick={onCreateMonth} size="sm">+ New Month</Button>
 			</div>
 			<div class="flex gap-1 rounded-lg bg-gray-100 p-1">

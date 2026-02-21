@@ -34,11 +34,11 @@
 
 	// Chart filters
 	const currentDate = new Date();
-	let chartAccountFilter = $state<'all' | AccountType>('all');
-	let chartYear = $state(currentDate.getFullYear());
+	let chartAccountFilter = $state<'all' | AccountType>('company');
+	let chartYear = $state(2024);
 	let chartFromMonth = $state(0);
 	let chartToMonth = $state(11);
-	let chartStatus = $state<'all' | 'paid' | 'unpaid'>('all');
+	let chartStatus = $state<'all' | 'paid' | 'unpaid'>('unpaid');
 	let chartMonthStatus = $state<'all' | 'active' | 'closed'>('all');
 	let showChartFilters = $state(false);
 
@@ -115,7 +115,15 @@
 	<Card class="w-full">
 		<Header class="space-y-3">
 			<div class="flex items-center justify-between">
-				<Title class="text-xl font-bold">Expense Breakdown</Title>
+				<div class="flex items-center gap-2">
+					<div class="rounded-lg bg-amber-100 p-1.5">
+						<svg class="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
+						</svg>
+					</div>
+					<Title class="text-xl font-bold">Expense Breakdown</Title>
+				</div>
 				<Button
 					variant="outline"
 					size="sm"
@@ -206,7 +214,14 @@
 {#if closedMonths.length > 0}
 	<Card class="w-full">
 		<Header>
-			<Title class="text-xl font-bold">Month History</Title>
+			<div class="flex items-center gap-2">
+				<div class="rounded-lg bg-gray-200 p-1.5">
+					<svg class="h-5 w-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+				</div>
+				<Title class="text-xl font-bold">Month History</Title>
+			</div>
 			<p class="text-sm text-gray-500">{closedMonths.length} closed month{closedMonths.length !== 1 ? 's' : ''}</p>
 		</Header>
 		<Content class="p-4">
