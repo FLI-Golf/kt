@@ -11,7 +11,7 @@
 
 	let { onSelectMonth, onCreateMonth }: Props = $props();
 
-	let activeTab = $state<'all' | 'personal' | 'company'>('all');
+	let activeTab = $state<'all' | 'personal' | 'company' | 'business'>('all');
 
 	type MonthSortField = 'date' | 'name' | 'amount' | 'count';
 	type SortDir = 'asc' | 'desc';
@@ -69,6 +69,7 @@
 
 	const personalCount = $derived(allActiveMonths.filter(m => m.isPersonal).length);
 	const companyCount = $derived(allActiveMonths.filter(m => m.isCompany).length);
+	const businessCount = $derived(allActiveMonths.filter(m => m.isBusiness).length);
 
 	const MONTHS_PAGE_SIZE = 5;
 	let monthsPage = $state(1);
@@ -138,6 +139,12 @@
 					Personal ({personalCount})
 				</button>
 				<button
+					class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeTab === 'business' ? 'bg-white text-amber-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
+					onclick={() => (activeTab = 'business')}
+				>
+					Business ({businessCount})
+				</button>
+				<button
 					class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors {activeTab === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600 hover:text-gray-900'}"
 					onclick={() => (activeTab = 'company')}
 				>
@@ -166,8 +173,8 @@
 								<div>
 									<div class="flex items-center gap-2">
 										<h3 class="font-medium">{month.name}</h3>
-										<span class="rounded px-1.5 py-0.5 text-xs font-medium {month.isCompany ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
-											{month.isCompany ? 'Company' : 'Personal'}
+										<span class="rounded px-1.5 py-0.5 text-xs font-medium {month.isBusiness ? 'bg-amber-100 text-amber-700' : month.isCompany ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}">
+											{month.isBusiness ? 'Business' : month.isCompany ? 'Company' : 'Personal'}
 										</span>
 										<span class="rounded px-1.5 py-0.5 text-xs font-medium {getStatusBadge(month.status)}">
 											{month.status === 'pending_close' ? 'Pending' : month.status === 'active' ? 'Active' : 'Closed'}

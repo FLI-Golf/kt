@@ -170,6 +170,12 @@
 						Personal
 					</button>
 					<button
+						class="rounded-md px-3 py-1 text-sm font-medium transition-colors {accountType === 'business' ? 'bg-white text-amber-700 shadow-sm' : 'text-gray-600'}"
+						onclick={() => (accountType = 'business')}
+					>
+						Business
+					</button>
+					<button
 						class="rounded-md px-3 py-1 text-sm font-medium transition-colors {accountType === 'company' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-600'}"
 						onclick={() => (accountType = 'company')}
 					>

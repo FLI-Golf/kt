@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { appStore, type Month, type AccountType, DEFAULT_YEAR } from '$lib/models';
-	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus, CsvImporter, CompanyCsvImporter, ChaseImporter } from '$lib/components';
+	import { MonthList, MonthForm, MonthDetail, MonthHistory, CategoryList, SyncStatus, CsvImporter, CompanyCsvImporter, ChaseImporter, ResolveView } from '$lib/components';
 
 	// Initialize store on mount
 	$effect(() => {
@@ -13,13 +13,16 @@
 	let selectedMonth = $state<Month | undefined>(undefined);
 	
 	// Tab state
-	type Tab = 'active' | 'history' | 'categories';
+	type Tab = 'active' | 'history' | 'categories' | 'resolve';
 	let currentTab = $state<Tab>('active');
 
 	// Counts for badges
 	const activeCount = $derived(appStore.months.filter(m => !m.isClosed).length);
 	const historyCount = $derived(appStore.months.filter(m => m.isClosed).length);
 	const categoryCount = $derived(appStore.categoryCount);
+	const companyTxCount = $derived(
+		appStore.months.filter(m => m.accountType === 'company').reduce((s, m) => s + m.transactionCount, 0)
+	);
 
 	const handleSelectMonth = (month: Month) => {
 		selectedMonth = month;
@@ -47,7 +50,8 @@
 
 	const handleUpdateMonth = (data: { year: number; monthIndex: number; accountType: AccountType }) => {
 		if (selectedMonth) {
-			const label = data.accountType === 'company' ? 'Company' : 'Personal';
+			const labels: Record<string, string> = { personal: 'Personal', company: 'Company', business: 'Business' };
+			const label = labels[data.accountType] || 'Personal';
 			selectedMonth.name = `${['January','February','March','April','May','June','July','August','September','October','November','December'][data.monthIndex]} ${data.year} - ${label}`;
 			appStore.save();
 		}
@@ -75,6 +79,29 @@
 				appStore.setActiveMonth(nextMonth.id);
 			}
 		}
+	};
+
+	let showRemoveMenu = $state(false);
+
+	const handleRemoveData = (accountType: 'personal' | 'company' | 'business') => {
+		const labels: Record<string, string> = { personal: 'Personal', company: 'Company', business: 'Business' };
+		const months = appStore.months.filter(m => m.accountType === accountType);
+		const txCount = months.reduce((s, m) => s + m.transactionCount, 0);
+		if (months.length === 0) {
+			alert(`No ${labels[accountType]} months to remove.`);
+			showRemoveMenu = false;
+			return;
+		}
+		if (!confirm(`Delete ALL ${months.length} ${labels[accountType]} month(s) and ${txCount} transaction(s)? This cannot be undone.`)) {
+			showRemoveMenu = false;
+			return;
+		}
+		for (const m of months) {
+			appStore.deleteMonth(m.id);
+		}
+		showRemoveMenu = false;
+		selectedMonth = undefined;
+		currentView = 'list';
 	};
 
 	console.log("APP BOOTED", new Date().toISOString());
@@ -115,6 +142,39 @@
 				>
 					Import Chase
 				</button>
+				<div class="relative">
+					<button
+						onclick={() => showRemoveMenu = !showRemoveMenu}
+						class="rounded-lg bg-red-100 px-3 py-1.5 text-sm font-medium text-red-700 transition-colors hover:bg-red-200"
+					>
+						Remove Data
+					</button>
+					{#if showRemoveMenu}
+						<div class="absolute right-0 top-full z-30 mt-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+							<button
+								onclick={() => handleRemoveData('personal')}
+								class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700"
+							>
+								<span class="h-2 w-2 rounded-full bg-blue-500"></span>
+								Personal
+							</button>
+							<button
+								onclick={() => handleRemoveData('business')}
+								class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700"
+							>
+								<span class="h-2 w-2 rounded-full bg-amber-500"></span>
+								Business
+							</button>
+							<button
+								onclick={() => handleRemoveData('company')}
+								class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-gray-700 hover:bg-red-50 hover:text-red-700"
+							>
+								<span class="h-2 w-2 rounded-full bg-purple-500"></span>
+								Company
+							</button>
+						</div>
+					{/if}
+				</div>
 				<SyncStatus />
 			</div>
 			</div>
@@ -159,6 +219,18 @@
 							</span>
 						{/if}
 					</button>
+					<button
+						onclick={() => currentTab = 'resolve'}
+						class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors {currentTab === 'resolve' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+					>
+						Resolve
+						{#if companyTxCount > 0}
+							<span class="rounded-full px-2 py-0.5 text-xs {currentTab === 'resolve' ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-600'}">
+								{companyTxCount}
+							</span>
+						{/if}
+					</button>
+
 				</div>
 
 				<!-- Tab Content -->
@@ -168,6 +240,8 @@
 					<MonthHistory onSelectMonth={handleSelectMonth} />
 				{:else if currentTab === 'categories'}
 					<CategoryList />
+				{:else if currentTab === 'resolve'}
+					<ResolveView />
 				{/if}
 			</div>
 		{:else if currentView === 'create'}
