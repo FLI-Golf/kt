@@ -118,7 +118,7 @@
 	let undoTimer: ReturnType<typeof setTimeout> | null = null;
 
 	const handleMoveTransaction = (transactionId: string) => {
-		const targetType = month.isPersonal ? 'company' : 'personal';
+		const targetType = 'business' as const;
 		const targetName = appStore.moveTransaction(month.id, transactionId, targetType);
 		if (targetName) {
 			month.calculateTotals();
@@ -137,7 +137,7 @@
 		if (undoTimer) clearTimeout(undoTimer);
 	};
 
-	const moveLabel = $derived(month.isPersonal ? 'To Company' : 'To Personal');
+	const moveLabel = 'To Business';
 
 	const editingTransaction = $derived(editingTransactionId ? month.getTransaction(editingTransactionId) : undefined);
 
