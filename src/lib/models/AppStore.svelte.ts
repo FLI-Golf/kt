@@ -301,7 +301,7 @@ export class AppStore {
         // Add to target
         const newTransaction = targetMonth.addTransaction(transaction.description);
         newTransaction.amount = transaction.amount;
-        newTransaction.type = targetAccountType === 'company' ? 'expense' : transaction.type;
+        newTransaction.type = transaction.type;
         newTransaction.category_ids = [...transaction.category_ids];
         newTransaction.note = transaction.note;
         newTransaction.images = [...transaction.images];
