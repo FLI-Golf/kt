@@ -20,8 +20,8 @@
 	const activeCount = $derived(appStore.months.filter(m => !m.isClosed).length);
 	const historyCount = $derived(appStore.months.filter(m => m.isClosed).length);
 	const categoryCount = $derived(appStore.categoryCount);
-	const companyTxCount = $derived(
-		appStore.months.filter(m => m.accountType === 'company').reduce((s, m) => s + m.transactionCount, 0)
+	const businessTxCount = $derived(
+		appStore.months.filter(m => m.accountType === 'business').reduce((s, m) => s + m.transactionCount, 0)
 	);
 
 	const handleSelectMonth = (month: Month) => {
@@ -224,9 +224,9 @@
 						class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors {currentTab === 'resolve' ? 'bg-orange-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
 					>
 						Resolve
-						{#if companyTxCount > 0}
+						{#if businessTxCount > 0}
 							<span class="rounded-full px-2 py-0.5 text-xs {currentTab === 'resolve' ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-600'}">
-								{companyTxCount}
+								{businessTxCount}
 							</span>
 						{/if}
 					</button>
